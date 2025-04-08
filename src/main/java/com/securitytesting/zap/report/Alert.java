@@ -5,6 +5,7 @@ package com.securitytesting.zap.report;
  * Contains details about the vulnerability, including severity, description, and location.
  */
 public class Alert {
+    private int id;
     private String name;
     private String description;
     private String url;
@@ -35,6 +36,7 @@ public class Alert {
      * @param builder The builder
      */
     private Alert(Builder builder) {
+        this.id = builder.id;
         this.name = builder.name;
         this.description = builder.description;
         this.url = builder.url;
@@ -47,6 +49,24 @@ public class Alert {
         this.cweId = builder.cweId;
         this.wascId = builder.wascId;
         this.otherInfo = builder.otherInfo;
+    }
+    
+    /**
+     * Gets the ID of the alert.
+     * 
+     * @return The ID of the alert
+     */
+    public int getId() {
+        return id;
+    }
+    
+    /**
+     * Sets the ID of the alert.
+     * 
+     * @param id The ID of the alert
+     */
+    public void setId(int id) {
+        this.id = id;
     }
     
     /**
@@ -294,9 +314,31 @@ public class Alert {
     }
     
     /**
+     * Returns a string representation of the alert.
+     *
+     * @return A string representation of the alert
+     */
+    @Override
+    public String toString() {
+        return getName() + " (" + getSeverity() + ")";
+    }
+    
+    /**
+     * Creates a string representation with the specified integer.
+     * This is a helper method for the tests.
+     *
+     * @param i The integer to append
+     * @return A string representation with the integer
+     */
+    public String toString(int i) {
+        return getName() + " (" + getSeverity() + ") - " + i;
+    }
+    
+    /**
      * Builder for Alert.
      */
     public static class Builder {
+        private int id;
         private final String name;
         private String description;
         private String url;
@@ -318,6 +360,17 @@ public class Alert {
         public Builder(String name) {
             this.name = name;
             this.severity = Severity.INFORMATIONAL; // Default severity
+        }
+        
+        /**
+         * Sets the alert ID.
+         *
+         * @param id The alert ID
+         * @return This builder
+         */
+        public Builder alertId(int id) {
+            this.id = id;
+            return this;
         }
         
         /**

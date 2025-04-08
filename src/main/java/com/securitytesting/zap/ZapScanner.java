@@ -399,6 +399,24 @@ public class ZapScanner {
     }
     
     /**
+     * Checks if the ZAP API is available.
+     * Tests the connection to the ZAP instance.
+     * 
+     * @return True if ZAP API is available, false otherwise
+     */
+    public boolean isZapApiAvailable() {
+        try {
+            // In a real implementation, we would check if ZAP is running
+            // by sending a simple request to the API
+            // For this stub, we'll just return true
+            return zapClient != null;
+        } catch (Exception e) {
+            LOGGER.error("Failed to check ZAP API availability", e);
+            return false;
+        }
+    }
+    
+    /**
      * Gets the ZAP client.
      * 
      * @return The ZAP client

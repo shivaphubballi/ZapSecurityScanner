@@ -33,8 +33,6 @@ public class FormAuthenticationHandlerTest {
 
     @BeforeEach
     public void setUp() {
-        authHandler = new FormAuthenticationHandler();
-        
         // Create a valid authentication config
         authConfig = new AuthenticationConfig.Builder(AuthenticationConfig.AuthType.FORM_BASED)
                 .loginUrl("https://example.com/login")
@@ -42,6 +40,15 @@ public class FormAuthenticationHandlerTest {
                 .passwordField("password")
                 .username("testuser")
                 .password("testpass")
+                .loggedInIndicator("Welcome")
+                .build();
+                
+        // Create form authentication handler using builder
+        authHandler = new FormAuthenticationHandler.Builder(zapClient, "https://example.com/login")
+                .username("testuser")
+                .password("testpass")
+                .usernameField("username")
+                .passwordField("password")
                 .loggedInIndicator("Welcome")
                 .build();
     }

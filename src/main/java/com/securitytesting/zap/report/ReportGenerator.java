@@ -167,6 +167,21 @@ public class ReportGenerator {
     }
     
     /**
+     * Exports a report from a scan result.
+     * 
+     * @param result The scan result
+     * @param format The format of the report
+     * @param outputPath The output path for the report
+     * @throws ZapScannerException If export fails
+     */
+    public void exportReport(ScanResult result, ReportFormat format, String outputPath) throws ZapScannerException {
+        LOGGER.info("Exporting {} report to {}", format, outputPath);
+        
+        // Delegate to the generate report method
+        generateReport(result, format, outputPath);
+    }
+    
+    /**
      * Parses alerts from an API response.
      * 
      * @param response The API response
@@ -397,21 +412,22 @@ public class ReportGenerator {
     
     /**
      * Generates a PDF report from a scan result.
+     * This is a stub implementation.
      * 
      * @param result The scan result
-     * @return The PDF report
+     * @return The PDF report as a string
      */
     private String generatePdfReport(ScanResult result) {
         // In a real implementation, we would generate a PDF
-        // For this stub, we'll return a message
-        return "PDF report generation is not implemented in this stub.";
+        // For this stub, we'll return a placeholder
+        return "PDF report for " + result.getTargetUrl();
     }
     
     /**
-     * Generates a Markdown report from a scan result.
+     * Generates a markdown report from a scan result.
      * 
      * @param result The scan result
-     * @return The Markdown report
+     * @return The markdown report
      */
     private String generateMarkdownReport(ScanResult result) {
         StringBuilder sb = new StringBuilder();
@@ -420,11 +436,11 @@ public class ReportGenerator {
         
         // Summary
         sb.append("## Summary\n\n");
-        sb.append("- Target: ").append(result.getTargetUrl()).append("\n");
-        sb.append("- Date: ").append(result.getScanDate()).append("\n");
-        sb.append("- Duration: ").append(result.getScanDurationMs() / 1000).append(" seconds\n\n");
+        sb.append("- **Target:** ").append(result.getTargetUrl()).append("\n");
+        sb.append("- **Date:** ").append(result.getScanDate()).append("\n");
+        sb.append("- **Duration:** ").append(result.getScanDurationMs() / 1000).append(" seconds\n\n");
         
-        sb.append("### Alerts\n\n");
+        sb.append("### Alert Statistics\n\n");
         sb.append("- High Risk Alerts: ").append(result.getHighAlerts()).append("\n");
         sb.append("- Medium Risk Alerts: ").append(result.getMediumAlerts()).append("\n");
         sb.append("- Low Risk Alerts: ").append(result.getLowAlerts()).append("\n");
@@ -438,22 +454,22 @@ public class ReportGenerator {
             sb.append("### ").append(alert.getName()).append(" (").append(alert.getSeverity()).append(")\n\n");
             
             if (alert.getUrl() != null && !alert.getUrl().isEmpty()) {
-                sb.append("- URL: ").append(alert.getUrl()).append("\n");
+                sb.append("**URL:** ").append(alert.getUrl()).append("\n\n");
             }
             
             if (alert.getParam() != null && !alert.getParam().isEmpty()) {
-                sb.append("- Parameter: ").append(alert.getParam()).append("\n");
+                sb.append("**Parameter:** ").append(alert.getParam()).append("\n\n");
             }
             
             if (alert.getDescription() != null && !alert.getDescription().isEmpty()) {
-                sb.append("- Description: ").append(alert.getDescription()).append("\n");
+                sb.append("**Description:** ").append(alert.getDescription()).append("\n\n");
             }
             
             if (alert.getSolution() != null && !alert.getSolution().isEmpty()) {
-                sb.append("- Solution: ").append(alert.getSolution()).append("\n");
+                sb.append("**Solution:** ").append(alert.getSolution()).append("\n\n");
             }
             
-            sb.append("\n");
+            sb.append("---\n\n");
         }
         
         return sb.toString();
@@ -467,13 +483,17 @@ public class ReportGenerator {
      * @throws IOException If writing fails
      */
     private void writeReportToFile(String reportData, String outputPath) throws IOException {
-        // Create parent directories if they don't exist
         File outputFile = new File(outputPath);
-        if (!outputFile.getParentFile().exists()) {
+        
+        // Create parent directories if they don't exist
+        if (outputFile.getParentFile() != null && !outputFile.getParentFile().exists()) {
             outputFile.getParentFile().mkdirs();
         }
         
         // Write the report to the file
-        Files.write(Paths.get(outputPath), reportData.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        Files.write(Paths.get(outputPath), reportData.getBytes(), 
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        
+        LOGGER.info("Report written to {}", outputPath);
     }
 }

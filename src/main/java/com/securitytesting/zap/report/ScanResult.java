@@ -395,6 +395,36 @@ public class ScanResult {
         }
         
         /**
+         * Adds an alert to the scan result.
+         * 
+         * @param alert The alert to add
+         * @return This builder
+         */
+        public Builder addAlert(Alert alert) {
+            if (alert != null) {
+                this.alerts.add(alert);
+                this.totalAlerts++;
+                
+                // Increment count for the appropriate severity
+                switch (alert.getSeverity()) {
+                    case HIGH:
+                        this.highAlerts++;
+                        break;
+                    case MEDIUM:
+                        this.mediumAlerts++;
+                        break;
+                    case LOW:
+                        this.lowAlerts++;
+                        break;
+                    case INFORMATIONAL:
+                        this.infoAlerts++;
+                        break;
+                }
+            }
+            return this;
+        }
+        
+        /**
          * Sets the target URL.
          * 
          * @param targetUrl The target URL
@@ -450,6 +480,15 @@ public class ScanResult {
          */
         public int getInfoAlerts() {
             return infoAlerts;
+        }
+        
+        /**
+         * Gets the total number of alerts.
+         * 
+         * @return The total number of alerts
+         */
+        public int getTotalAlerts() {
+            return totalAlerts;
         }
         
         /**

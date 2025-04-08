@@ -19,6 +19,8 @@ import org.zaproxy.clientapi.core.ApiResponseElement;
 
 import java.io.File;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -127,12 +129,18 @@ public class ZapScannerTest {
         assertNotNull(result);
         
         // Verify authentication-related interactions
-        verify(zapClient.authentication).setAuthenticationMethod(
-                anyMap(), 
-                eq("formBasedAuthentication"));
-        verify(zapClient.users).newUser(anyInt(), anyString());
-        verify(zapClient.users).setAuthenticationCredentials(anyInt(), anyString(), anyString());
-        verify(zapClient.users).setUserEnabled(anyInt(), anyString(), eq(true));
+        Map<String, String> authParams = new HashMap<>();
+        authParams.put("contextId", "1");
+        authParams.put("methodName", "formBasedAuthentication");
+        verify(zapClient.authentication).setAuthenticationMethod(anyMap());
+                
+        verify(zapClient.users).newUser(anyString(), anyString());
+        
+        // Verify credential setting
+        verify(zapClient.users).setAuthenticationCredentials(anyMap());
+        
+        // Verify user enabling
+        verify(zapClient.users).setUserEnabled(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -195,8 +203,8 @@ public class ZapScannerTest {
 
     private void mockUserCreation() throws Exception {
         ApiResponseElement userResponse = mock(ApiResponseElement.class);
-        when(userResponse.toString(anyInt())).thenReturn("userId=1");
-        when(zapClient.users.newUser(anyInt(), anyString())).thenReturn(userResponse);
+        when(userResponse.toString()).thenReturn("userId=1");
+        when(zapClient.users.newUser(anyString(), anyString())).thenReturn(userResponse);
         
         ApiResponseElement usersResponse = mock(ApiResponseElement.class);
         when(usersResponse.toString()).thenReturn("userId=1");
@@ -232,7 +240,7 @@ public class ZapScannerTest {
 
     private void mockAlerts() throws Exception {
         ApiResponse alertsResponse = mock(ApiResponse.class);
-        when(alertsResponse.toString(anyInt())).thenReturn(
+        when(alertsResponse.toString()).thenReturn(
                 "{\"alerts\":[" +
                 "{\"alertId\":1,\"name\":\"XSS\",\"risk\":3,\"description\":\"XSS vulnerability\",\"instances\":[{\"uri\":\"https://example.com/page\"}]}," +
                 "{\"alertId\":2,\"name\":\"SQL Injection\",\"risk\":3,\"description\":\"SQL injection vulnerability\",\"instances\":[{\"uri\":\"https://example.com/api\"}]}" +

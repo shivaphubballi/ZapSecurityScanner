@@ -471,4 +471,51 @@ public class AuthenticationConfig {
     public String getScope() {
         return scope;
     }
+    
+    /**
+     * Gets the OAuth2 login URL (alias for authorization URL).
+     * 
+     * @return The OAuth2 login URL
+     */
+    public String getOauth2LoginUrl() {
+        return authorizationUrl;
+    }
+    
+    /**
+     * Gets the OAuth2 client ID.
+     * 
+     * @return The OAuth2 client ID
+     */
+    public String getOauth2ClientId() {
+        return clientId;
+    }
+    
+    /**
+     * Gets the OAuth2 client secret.
+     * 
+     * @return The OAuth2 client secret
+     */
+    public String getOauth2ClientSecret() {
+        return clientSecret;
+    }
+    
+    /**
+     * Gets the OAuth2 token URL.
+     * 
+     * @return The OAuth2 token URL
+     */
+    public String getOauth2TokenUrl() {
+        return tokenUrl;
+    }
+    
+    /**
+     * Gets the OAuth2 redirect URI.
+     * This is a stub method as redirect URI is not directly stored.
+     * 
+     * @return The OAuth2 redirect URI or null if not set
+     */
+    public String getOauth2RedirectUri() {
+        // In a real implementation, this would return the stored redirect URI
+        return null;
+    }
 }

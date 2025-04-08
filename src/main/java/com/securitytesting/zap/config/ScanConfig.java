@@ -28,6 +28,7 @@ public class ScanConfig {
     private final int maxPassiveScanDurationInMinutes;
     private final int maxActiveScanDurationInMinutes;
     private final int threadCount;
+    private final boolean activeScanEnabled;
     
     /**
      * Builder for scan configuration.
@@ -53,6 +54,7 @@ public class ScanConfig {
         private int maxPassiveScanDurationInMinutes = 10;
         private int maxActiveScanDurationInMinutes = 60;
         private int threadCount = 5;
+        private boolean activeScanEnabled = true;
         
         /**
          * Sets the ZAP host.
@@ -179,6 +181,17 @@ public class ScanConfig {
         }
         
         /**
+         * Sets whether active scanning is enabled.
+         * 
+         * @param activeScanEnabled Whether active scanning is enabled
+         * @return The builder
+         */
+        public Builder activeScanEnabled(boolean activeScanEnabled) {
+            this.activeScanEnabled = activeScanEnabled;
+            return this;
+        }
+        
+        /**
          * Builds the scan configuration.
          * 
          * @return The scan configuration
@@ -205,6 +218,7 @@ public class ScanConfig {
         this.maxPassiveScanDurationInMinutes = builder.maxPassiveScanDurationInMinutes;
         this.maxActiveScanDurationInMinutes = builder.maxActiveScanDurationInMinutes;
         this.threadCount = builder.threadCount;
+        this.activeScanEnabled = builder.activeScanEnabled;
     }
     
     /**
@@ -304,5 +318,14 @@ public class ScanConfig {
      */
     public int getThreadCount() {
         return threadCount;
+    }
+    
+    /**
+     * Gets whether active scanning is enabled.
+     * 
+     * @return Whether active scanning is enabled
+     */
+    public boolean isActiveScanEnabled() {
+        return activeScanEnabled;
     }
 }

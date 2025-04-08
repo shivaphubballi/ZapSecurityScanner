@@ -4,6 +4,7 @@ import com.securitytesting.zap.auth.AuthenticationHandler;
 import com.securitytesting.zap.config.ScanConfig;
 import com.securitytesting.zap.exception.ZapScannerException;
 import com.securitytesting.zap.policy.ScanPolicy;
+import com.securitytesting.zap.report.ScanResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zaproxy.clientapi.core.ApiResponse;
@@ -50,6 +51,46 @@ public class OpenApiScanner {
      */
     public void setAuthenticationHandler(AuthenticationHandler authHandler) {
         this.authHandler = authHandler;
+    }
+
+    /**
+     * Scan an OpenAPI definition from a URL.
+     * This method imports the OpenAPI definition and performs a scan on it.
+     *
+     * @param config The scan configuration
+     * @param openApiUrl The URL to the OpenAPI specification
+     * @return The scan result
+     * @throws ZapScannerException If scanning fails
+     */
+    public ScanResult scan(ScanConfig config, String openApiUrl) throws ZapScannerException {
+        LOGGER.info("Starting scan for OpenAPI URL: {}", openApiUrl);
+        
+        try {
+            // Import the OpenAPI definition
+            URL url = new URL(openApiUrl);
+            String targetUrl = importOpenApiDefinition(url, config.getContextName());
+            
+            // Perform passive scan
+            performPassiveScan(config.getContextName(), config.getMaxPassiveScanDurationInMinutes());
+            
+            // Perform active scan if enabled
+            if (config.isActiveScanEnabled()) {
+                performActiveScan(targetUrl, config.getContextName(), null, config.getMaxActiveScanDurationInMinutes());
+            }
+            
+            // Generate scan result
+            // This would typically use a ReportGenerator to create the ScanResult
+            // For this example, we'll create a simple result
+            ScanResult result = new ScanResult();
+            result.setTargetUrl(targetUrl);
+            result.setScanDurationMs(System.currentTimeMillis());
+            
+            LOGGER.info("OpenAPI scan completed");
+            return result;
+        } catch (Exception e) {
+            LOGGER.error("Failed during OpenAPI scan", e);
+            throw new ZapScannerException("Failed during OpenAPI scan: " + e.getMessage(), e);
+        }
     }
 
     /**
