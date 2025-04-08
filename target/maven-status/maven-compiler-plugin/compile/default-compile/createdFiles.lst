@@ -36,6 +36,7 @@ com/securitytesting/zap/auth/ApiKeyAuthenticationHandler.class
 org/zaproxy/clientapi/core/ApiResponseElement.class
 com/securitytesting/zap/auth/OAuth2AuthenticationHandler$Builder.class
 com/securitytesting/zap/exception/AuthenticationException.class
+com/securitytesting/zap/example/VulnerableAppScanExample.class
 org/zaproxy/clientapi/core/ClientApi.class
 com/securitytesting/zap/config/ScanConfig$Builder.class
 org/zaproxy/clientapi/core/Authentication.class

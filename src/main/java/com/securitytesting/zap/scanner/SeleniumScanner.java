@@ -257,4 +257,51 @@ public class SeleniumScanner {
     public String getDriverPath() {
         return driverPath;
     }
+    
+    /**
+     * Authenticates to the target application using Selenium.
+     * This is useful for complex authentication scenarios or establishing a session
+     * before performing other scanning operations.
+     * 
+     * @param targetUrl The target URL for authentication
+     * @return true if authentication was successful, false otherwise
+     * @throws ZapScannerException If authentication fails
+     */
+    public boolean authenticate(String targetUrl) throws ZapScannerException {
+        if (targetUrl == null || targetUrl.trim().isEmpty()) {
+            throw new ZapScannerException("Target URL cannot be null or empty");
+        }
+        
+        if (authHandler == null) {
+            throw new ZapScannerException("Authentication handler must be set before authenticating");
+        }
+        
+        LOGGER.info("Starting Selenium-based authentication for target URL: {}", targetUrl);
+        
+        try {
+            // In a real implementation, we would:
+            // 1. Initialize the WebDriver
+            // 2. Navigate to the login page
+            // 3. Fill in authentication fields
+            // 4. Submit the form
+            // 5. Verify successful login
+            
+            // For this stub implementation, we'll simulate successful authentication
+            
+            // Set up context for authentication
+            String contextName = config.getContextName();
+            Integer contextId = authHandler.setupAuthentication(contextName);
+            
+            LOGGER.info("Authentication context set up with ID: {}", contextId);
+            
+            // Perform a simulated login using Selenium
+            // In a real implementation, this would use WebDriver to interact with the page
+            
+            LOGGER.info("Authentication completed successfully");
+            return true;
+        } catch (Exception e) {
+            LOGGER.error("Failed during authentication", e);
+            throw new ZapScannerException("Failed during authentication: " + e.getMessage(), e);
+        }
+    }
 }

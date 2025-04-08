@@ -459,4 +459,45 @@ public class ZapScanner {
             return false;
         }
     }
+    
+    /**
+     * Performs authentication using Selenium WebDriver.
+     * This method is useful when you want to authenticate before running a spider or passive scan.
+     * 
+     * @param targetUrl The target URL
+     * @param driverPath The path to the Selenium WebDriver
+     * @return true if authentication was successful, false otherwise
+     * @throws ZapScannerException If authentication fails
+     */
+    public boolean authenticateWithSelenium(String targetUrl, String driverPath) throws ZapScannerException {
+        LOGGER.info("Authenticating to {} using Selenium", targetUrl);
+        
+        try {
+            // Check if authentication config is available
+            if (config.getAuthenticationConfig() == null) {
+                LOGGER.warn("No authentication configuration provided");
+                return false;
+            }
+            
+            // Create a Selenium scanner
+            SeleniumScanner scanner = new SeleniumScanner(zapClient, config, driverPath);
+            
+            // Configure authentication
+            scanner.setAuthenticationHandler(createAuthenticationHandler(config.getAuthenticationConfig()));
+            
+            // Authenticate using Selenium
+            boolean success = scanner.authenticate(targetUrl);
+            
+            if (success) {
+                LOGGER.info("Authentication successful");
+            } else {
+                LOGGER.warn("Authentication failed");
+            }
+            
+            return success;
+        } catch (Exception e) {
+            LOGGER.error("Failed to authenticate with Selenium", e);
+            throw new ZapScannerException("Failed to authenticate with Selenium: " + e.getMessage(), e);
+        }
+    }
 }
