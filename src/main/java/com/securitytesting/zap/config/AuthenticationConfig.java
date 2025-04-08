@@ -43,6 +43,7 @@ public class AuthenticationConfig {
     private final String clientSecret;
     private final String tokenUrl;
     private final String authorizationUrl;
+    private final String redirectUrl;
     private final String scope;
     
     /**
@@ -76,6 +77,7 @@ public class AuthenticationConfig {
         private String clientSecret;
         private String tokenUrl;
         private String authorizationUrl;
+        private String redirectUrl;
         private String scope;
         
         /**
@@ -264,6 +266,17 @@ public class AuthenticationConfig {
         }
         
         /**
+         * Sets the redirect URL.
+         * 
+         * @param redirectUrl The redirect URL for OAuth2
+         * @return The builder
+         */
+        public Builder redirectUrl(String redirectUrl) {
+            this.redirectUrl = redirectUrl;
+            return this;
+        }
+        
+        /**
          * Sets the scope.
          * 
          * @param scope The scope
@@ -307,6 +320,7 @@ public class AuthenticationConfig {
         this.clientSecret = builder.clientSecret;
         this.tokenUrl = builder.tokenUrl;
         this.authorizationUrl = builder.authorizationUrl;
+        this.redirectUrl = builder.redirectUrl;
         this.scope = builder.scope;
     }
     
@@ -464,6 +478,15 @@ public class AuthenticationConfig {
     }
     
     /**
+     * Gets the redirect URL.
+     * 
+     * @return The redirect URL
+     */
+    public String getRedirectUrl() {
+        return redirectUrl;
+    }
+    
+    /**
      * Gets the scope.
      * 
      * @return The scope
@@ -510,12 +533,11 @@ public class AuthenticationConfig {
     
     /**
      * Gets the OAuth2 redirect URI.
-     * This is a stub method as redirect URI is not directly stored.
      * 
-     * @return The OAuth2 redirect URI or null if not set
+     * @return The OAuth2 redirect URI
      */
     public String getOauth2RedirectUri() {
-        // In a real implementation, this would return the stored redirect URI
-        return null;
+        return redirectUrl;
     }
 }
+

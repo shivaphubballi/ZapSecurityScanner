@@ -28,6 +28,7 @@ public class OAuth2AuthenticationHandler implements AuthenticationHandler {
     private final String clientSecret;
     private final String tokenUrl;
     private final String authorizationUrl;
+    private final String redirectUrl;
     private final String scope;
     private final String scriptName;
     private File scriptFile;
@@ -41,6 +42,7 @@ public class OAuth2AuthenticationHandler implements AuthenticationHandler {
         private final String clientSecret;
         private final String tokenUrl;
         private final String authorizationUrl;
+        private String redirectUrl;
         private String scope;
         
         /**
@@ -59,6 +61,17 @@ public class OAuth2AuthenticationHandler implements AuthenticationHandler {
             this.clientSecret = clientSecret;
             this.tokenUrl = tokenUrl;
             this.authorizationUrl = authorizationUrl;
+        }
+        
+        /**
+         * Sets the redirect URL.
+         * 
+         * @param redirectUrl The redirect URL
+         * @return The builder
+         */
+        public Builder redirectUrl(String redirectUrl) {
+            this.redirectUrl = redirectUrl;
+            return this;
         }
         
         /**
@@ -93,6 +106,7 @@ public class OAuth2AuthenticationHandler implements AuthenticationHandler {
         this.clientSecret = builder.clientSecret;
         this.tokenUrl = builder.tokenUrl;
         this.authorizationUrl = builder.authorizationUrl;
+        this.redirectUrl = builder.redirectUrl;
         this.scope = builder.scope;
         this.scriptName = "oauth2-auth-" + System.currentTimeMillis();
     }
@@ -114,6 +128,30 @@ public class OAuth2AuthenticationHandler implements AuthenticationHandler {
         this.clientSecret = clientSecret;
         this.tokenUrl = tokenUrl;
         this.authorizationUrl = authorizationUrl;
+        this.redirectUrl = null;
+        this.scope = scope;
+        this.scriptName = "oauth2-auth-" + System.currentTimeMillis();
+    }
+    
+    /**
+     * Creates a new OAuth2 authentication handler with the specified parameters including redirect URL.
+     * 
+     * @param zapClient The ZAP client API
+     * @param clientId The client ID
+     * @param clientSecret The client secret
+     * @param tokenUrl The token URL
+     * @param authorizationUrl The authorization URL
+     * @param redirectUrl The redirect URL
+     * @param scope The scope
+     */
+    public OAuth2AuthenticationHandler(ClientApi zapClient, String clientId, String clientSecret, 
+                                      String tokenUrl, String authorizationUrl, String redirectUrl, String scope) {
+        this.zapClient = zapClient;
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+        this.tokenUrl = tokenUrl;
+        this.authorizationUrl = authorizationUrl;
+        this.redirectUrl = redirectUrl;
         this.scope = scope;
         this.scriptName = "oauth2-auth-" + System.currentTimeMillis();
     }
@@ -272,6 +310,10 @@ public class OAuth2AuthenticationHandler implements AuthenticationHandler {
         scriptContent.append("var TOKEN_URL = \"").append(tokenUrl).append("\";\n");
         scriptContent.append("var AUTHORIZATION_URL = \"").append(authorizationUrl).append("\";\n");
         
+        if (redirectUrl != null && !redirectUrl.isEmpty()) {
+            scriptContent.append("var REDIRECT_URL = \"").append(redirectUrl).append("\";\n");
+        }
+        
         if (scope != null && !scope.isEmpty()) {
             scriptContent.append("var SCOPE = \"").append(scope).append("\";\n");
         }
@@ -291,6 +333,11 @@ public class OAuth2AuthenticationHandler implements AuthenticationHandler {
         
         scriptContent.append("  tokenRequestBody += \"&client_id=\" + encodeURIComponent(clientId);\n");
         scriptContent.append("  tokenRequestBody += \"&client_secret=\" + encodeURIComponent(clientSecret);\n");
+        
+        if (redirectUrl != null && !redirectUrl.isEmpty()) {
+            scriptContent.append("  tokenRequestBody += \"&redirect_uri=\" + encodeURIComponent(REDIRECT_URL);\n");
+        }
+        
         scriptContent.append("  \n");
         scriptContent.append("  // Set up the token request\n");
         scriptContent.append("  var tokenRequest = \"POST \" + TOKEN_URL;\n");

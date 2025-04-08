@@ -1,6 +1,8 @@
 com/securitytesting/zap/report/ScanResult$Builder.class
+com/securitytesting/zap/ZapScanner$1.class
 com/securitytesting/zap/example/ScannerExample.class
 com/securitytesting/zap/auth/AuthenticationHandler.class
+org/zaproxy/clientapi/core/Users.class
 com/securitytesting/zap/exception/ZapScannerException.class
 org/zaproxy/clientapi/core/AjaxSpiderAPI.class
 org/zaproxy/clientapi/core/CoreAPI.class
@@ -8,10 +10,13 @@ com/securitytesting/zap/report/Severity.class
 com/securitytesting/zap/config/AuthenticationConfig.class
 com/securitytesting/zap/policy/ScanPolicy.class
 com/securitytesting/zap/report/ScanResult$1.class
+com/securitytesting/zap/scanner/WebAppScanner.class
+com/securitytesting/zap/report/RemediationReport.class
 com/securitytesting/zap/config/AuthenticationConfig$AuthType.class
 org/zaproxy/clientapi/core/Script.class
 com/securitytesting/zap/remediation/RemediationGenerator$1.class
 org/zaproxy/clientapi/core/AscanAPI.class
+com/securitytesting/zap/auth/CertificateAuthenticationHandler.class
 org/zaproxy/clientapi/core/ContextAPI.class
 com/securitytesting/zap/auth/FormAuthenticationHandler$Builder.class
 com/securitytesting/zap/exception/ScanConfigurationException.class
@@ -19,7 +24,9 @@ com/securitytesting/zap/policy/ScanPolicy$Threshold.class
 com/securitytesting/zap/report/Alert$Builder.class
 com/securitytesting/zap/report/ReportGenerator$1.class
 com/securitytesting/zap/auth/OAuth2AuthenticationHandler.class
+com/securitytesting/zap/report/RemediationReport$1.class
 org/zaproxy/clientapi/core/Reports.class
+com/securitytesting/zap/util/ZapClientFactory.class
 com/securitytesting/zap/config/AuthenticationConfig$Builder.class
 com/securitytesting/zap/scanner/SeleniumScanner.class
 com/securitytesting/zap/remediation/RemediationGenerator.class
@@ -37,8 +44,10 @@ com/securitytesting/zap/remediation/RemediationGenerator$RemediationTemplate.cla
 org/zaproxy/clientapi/core/ApiResponse.class
 org/zaproxy/clientapi/core/UsersAPI.class
 com/securitytesting/zap/report/ReportGenerator$ReportFormat.class
+com/securitytesting/zap/ZapScanner.class
 org/zaproxy/clientapi/core/ClientApiException.class
 com/securitytesting/zap/report/ReportGenerator.class
+com/securitytesting/zap/scanner/OpenApiScanner.class
 com/securitytesting/zap/remediation/RemediationSuggestion.class
 org/zaproxy/clientapi/core/PscanAPI.class
 org/zaproxy/clientapi/core/SpiderAPI.class
