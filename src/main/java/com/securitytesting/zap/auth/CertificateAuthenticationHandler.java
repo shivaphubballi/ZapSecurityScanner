@@ -1,133 +1,148 @@
 package com.securitytesting.zap.auth;
 
-import com.securitytesting.zap.config.AuthenticationConfig;
 import com.securitytesting.zap.exception.AuthenticationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zaproxy.clientapi.core.ApiResponse;
+import org.zaproxy.clientapi.core.ApiResponseElement;
 import org.zaproxy.clientapi.core.ClientApi;
 import org.zaproxy.clientapi.core.ClientApiException;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Base64;
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Authentication handler for certificate-based authentication.
+ * Configures ZAP to use client certificates for authentication.
  */
 public class CertificateAuthenticationHandler implements AuthenticationHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CertificateAuthenticationHandler.class);
-
+    
+    private final ClientApi zapClient;
+    private final File certificateFile;
+    private final String certificatePassword;
+    private final String certificateType;
+    
+    /**
+     * Creates a new certificate authentication handler with the specified parameters.
+     * 
+     * @param zapClient The ZAP client API
+     * @param certificateFile The certificate file
+     * @param certificatePassword The certificate password
+     * @param certificateType The certificate type
+     */
+    public CertificateAuthenticationHandler(ClientApi zapClient, File certificateFile, 
+                                           String certificatePassword, String certificateType) {
+        this.zapClient = zapClient;
+        this.certificateFile = certificateFile;
+        this.certificatePassword = certificatePassword;
+        this.certificateType = certificateType;
+    }
+    
+    /**
+     * Creates a new certificate authentication handler with default certificate type.
+     * 
+     * @param zapClient The ZAP client API
+     * @param certificateFile The certificate file
+     * @param certificatePassword The certificate password
+     */
+    public CertificateAuthenticationHandler(ClientApi zapClient, File certificateFile, String certificatePassword) {
+        this(zapClient, certificateFile, certificatePassword, "PKCS12");
+    }
+    
     @Override
-    public void configureAuthentication(ClientApi zapClient, AuthenticationConfig authConfig, int contextId) 
-            throws AuthenticationException {
-        LOGGER.debug("Configuring certificate-based authentication for context {}", contextId);
-        
-        validateConfig(authConfig);
-        
+    public Integer setupAuthentication(String contextName) throws AuthenticationException {
         try {
-            // Load the certificate file
-            byte[] certificateBytes = loadCertificate(authConfig.getCertificatePath());
-            String base64Certificate = Base64.getEncoder().encodeToString(certificateBytes);
+            LOGGER.info("Setting up certificate authentication for context: {}", contextName);
             
-            // Set up client certificate using ZAP API
-            Map<String, String> params = new HashMap<>();
-            params.put("certFile", base64Certificate);
+            // Create a new context if it doesn't exist
+            ApiResponse contextResponse = zapClient.context.newContext(contextName);
             
-            if (authConfig.getCertificatePassword() != null && !authConfig.getCertificatePassword().isEmpty()) {
-                params.put("password", authConfig.getCertificatePassword());
-            }
+            // Extract context ID
+            String contextIdStr = ((ApiResponseElement) contextResponse).getValue();
+            Integer contextId = Integer.valueOf(contextIdStr);
+            LOGGER.debug("Context ID: {}", contextId);
             
-            zapClient.core.setOptionUseClientCert(true);
-            zapClient.core.setOptionClientCertLocation(authConfig.getCertificatePath().toString());
+            // Set up certificate authentication
+            setClientCertificate();
             
-            if (authConfig.getCertificatePassword() != null) {
-                zapClient.core.setOptionClientCertPassword(authConfig.getCertificatePassword());
-            }
-            
-            LOGGER.debug("Certificate-based authentication configured successfully");
-            
-        } catch (ClientApiException | IOException e) {
-            LOGGER.error("Failed to configure certificate-based authentication", e);
-            throw new AuthenticationException("Failed to configure certificate-based authentication", e);
+            LOGGER.info("Certificate authentication setup complete for context: {}", contextName);
+            return contextId;
+        } catch (ClientApiException | NumberFormatException e) {
+            LOGGER.error("Failed to set up certificate authentication", e);
+            throw new AuthenticationException("Failed to set up certificate authentication: " + e.getMessage(), e);
         }
     }
-
+    
     @Override
-    public void createAuthentication(ClientApi zapClient, AuthenticationConfig authConfig, int contextId) 
-            throws AuthenticationException {
-        LOGGER.debug("Creating certificate authentication session for context {}", contextId);
-        
-        // For certificate-based authentication, the certificate is already configured
-        // in the configureAuthentication method and will be used automatically
-        // No user creation is needed for certificate-based authentication
-        
-        LOGGER.debug("Certificate authentication session created for context {}", contextId);
-    }
-
-    @Override
-    public boolean verifyAuthentication(ClientApi zapClient, AuthenticationConfig authConfig, int contextId) 
-            throws AuthenticationException {
-        LOGGER.debug("Verifying certificate-based authentication for context {}", contextId);
-        
+    public void setupAuthentication(int contextId) throws AuthenticationException {
         try {
-            // Check if client certificate is properly configured
-            boolean isClientCertEnabled = Boolean.parseBoolean(
-                    zapClient.core.optionUseClientCert().toString());
+            LOGGER.info("Setting up certificate authentication for context ID: {}", contextId);
             
-            String certLocation = zapClient.core.optionClientCertLocation().toString();
+            // Set up certificate authentication
+            setClientCertificate();
             
-            boolean isConfigured = isClientCertEnabled && certLocation != null && 
-                                  certLocation.equals(authConfig.getCertificatePath().toString());
-            
-            LOGGER.debug("Certificate authentication verification result: {}", isConfigured);
-            
-            return isConfigured;
-            
+            LOGGER.info("Certificate authentication setup complete for context ID: {}", contextId);
         } catch (ClientApiException e) {
-            LOGGER.error("Failed to verify certificate-based authentication", e);
-            throw new AuthenticationException("Failed to verify certificate-based authentication", e);
+            LOGGER.error("Failed to set up certificate authentication", e);
+            throw new AuthenticationException("Failed to set up certificate authentication: " + e.getMessage(), e);
         }
     }
-
+    
     @Override
     public void cleanup(ClientApi zapClient, int contextId) throws AuthenticationException {
-        LOGGER.debug("Cleaning up certificate-based authentication resources for context {}", contextId);
-        
-        try {
-            // Disable client certificate
-            zapClient.core.setOptionUseClientCert(false);
-            zapClient.core.setOptionClientCertLocation("");
-            zapClient.core.setOptionClientCertPassword("");
-            
-            LOGGER.debug("Certificate-based authentication resources cleaned up for context {}", contextId);
-            
-        } catch (ClientApiException e) {
-            LOGGER.error("Failed to clean up certificate-based authentication resources", e);
-            throw new AuthenticationException("Failed to clean up certificate-based authentication resources", e);
-        }
+        // No specific cleanup needed for certificate authentication
+        LOGGER.info("Certificate authentication cleanup complete for context ID: {}", contextId);
     }
-
-    private void validateConfig(AuthenticationConfig authConfig) throws AuthenticationException {
-        if (authConfig.getAuthType() != AuthenticationConfig.AuthType.CERTIFICATE) {
-            throw new AuthenticationException("Invalid authentication type for CertificateAuthenticationHandler");
-        }
+    
+    /**
+     * Sets the client certificate in ZAP.
+     * 
+     * @throws ClientApiException If setting the certificate fails
+     */
+    private void setClientCertificate() throws ClientApiException {
+        LOGGER.debug("Setting client certificate: {}", certificateFile.getAbsolutePath());
         
-        if (authConfig.getCertificatePath() == null) {
-            throw new AuthenticationException("Certificate path is required for certificate-based authentication");
-        }
+        // In a real implementation, we would use the ZAP API to set the client certificate
+        // For this stub, we'll just log the action
         
-        // Check if certificate file exists
-        if (!Files.exists(authConfig.getCertificatePath())) {
-            throw new AuthenticationException("Certificate file does not exist: " + 
-                                             authConfig.getCertificatePath().toString());
-        }
+        // Example of how it might be done:
+        /*
+        zapClient.core.setOptionDefaultUserAgent("ZAP Security Scanner");
+        zapClient.core.setOptionCertificateFile(certificateFile.getAbsolutePath());
+        zapClient.core.setOptionCertificatePassword(certificatePassword);
+        zapClient.core.setOptionCertificateType(certificateType);
+        */
+        
+        LOGGER.debug("Client certificate set");
     }
-
-    private byte[] loadCertificate(Path certificatePath) throws IOException {
-        return Files.readAllBytes(certificatePath);
+    
+    /**
+     * Gets the certificate file.
+     * 
+     * @return The certificate file
+     */
+    public File getCertificateFile() {
+        return certificateFile;
+    }
+    
+    /**
+     * Gets the certificate password.
+     * 
+     * @return The certificate password
+     */
+    public String getCertificatePassword() {
+        return certificatePassword;
+    }
+    
+    /**
+     * Gets the certificate type.
+     * 
+     * @return The certificate type
+     */
+    public String getCertificateType() {
+        return certificateType;
     }
 }

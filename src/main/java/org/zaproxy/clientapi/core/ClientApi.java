@@ -1,47 +1,49 @@
 package org.zaproxy.clientapi.core;
 
 /**
- * Stub implementation of the ZAP ClientApi class.
+ * Stub implementation of the ZAP Client API.
  * This is a placeholder that enables compilation without the actual ZAP API.
  */
 public class ClientApi {
     
-    // API components
-    public final CoreAPI core = new CoreAPI();
-    public final SpiderAPI spider = new SpiderAPI();
-    public final AjaxSpiderAPI ajaxSpider = new AjaxSpiderAPI();
-    public final ContextAPI context = new ContextAPI();
-    public final UsersAPI users = new UsersAPI();
-    public final AscanAPI ascan = new AscanAPI();
-    public final PscanAPI pscan = new PscanAPI();
-    public final Authentication authentication = new Authentication();
-    public final Reports reports = new Reports();
-    public final Script script = new Script();
-    
-    private final String zapAddress;
-    private final int zapPort;
-    private final String apiKey;
+    public final CoreAPI core;
+    public final PscanAPI pscan;
+    public final AscanAPI ascan;
+    public final SpiderAPI spider;
+    public final AjaxSpiderAPI ajaxSpider;
+    public final ContextAPI context;
+    public final Authentication authentication;
+    public final Script script;
+    public final UsersAPI users;
+    public final Reports reports;
     
     /**
-     * Constructor for the ClientApi.
+     * Creates a new ZAP client API with the specified parameters.
      * 
-     * @param zapAddress The ZAP address
+     * @param zapHost The ZAP host
      * @param zapPort The ZAP port
-     * @param apiKey The API key, or null if not required
+     * @param apiKey The API key
      */
-    public ClientApi(String zapAddress, int zapPort, String apiKey) {
-        this.zapAddress = zapAddress;
-        this.zapPort = zapPort;
-        this.apiKey = apiKey;
+    public ClientApi(String zapHost, int zapPort, String apiKey) {
+        this.core = new CoreAPI();
+        this.pscan = new PscanAPI();
+        this.ascan = new AscanAPI();
+        this.spider = new SpiderAPI();
+        this.ajaxSpider = new AjaxSpiderAPI();
+        this.context = new ContextAPI();
+        this.authentication = new Authentication();
+        this.script = new Script();
+        this.users = new UsersAPI();
+        this.reports = new Reports();
     }
     
     /**
-     * Constructor for the ClientApi.
+     * Creates a new ZAP client API with a default API key.
      * 
-     * @param zapAddress The ZAP address
+     * @param zapHost The ZAP host
      * @param zapPort The ZAP port
      */
-    public ClientApi(String zapAddress, int zapPort) {
-        this(zapAddress, zapPort, null);
+    public ClientApi(String zapHost, int zapPort) {
+        this(zapHost, zapPort, "");
     }
 }

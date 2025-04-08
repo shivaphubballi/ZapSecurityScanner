@@ -1,167 +1,211 @@
 package com.securitytesting.zap.policy;
 
+import com.securitytesting.zap.exception.ScanConfigurationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 /**
- * Manager for creating and managing predefined scan policies.
+ * Manages security scan policies.
+ * Provides predefined policies and methods to customize policies.
  */
 public class PolicyManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PolicyManager.class);
-
-    // Common scanner IDs grouped by category
+    
+    // Common OWASP Top 10 scanner IDs (example values, real ZAP IDs would be used)
     private static final List<Integer> SQL_INJECTION_SCANNERS = Arrays.asList(40018, 40019, 40020, 40021, 40022);
     private static final List<Integer> XSS_SCANNERS = Arrays.asList(40012, 40014, 40016, 40017);
-    private static final List<Integer> CSRF_SCANNERS = Collections.singletonList(40012);
-    private static final List<Integer> DIRECTORY_TRAVERSAL_SCANNERS = Arrays.asList(40003, 40008);
-    private static final List<Integer> REMOTE_FILE_INCLUSION_SCANNERS = Collections.singletonList(40004);
-    private static final List<Integer> SERVER_SIDE_CODE_INJECTION_SCANNERS = Collections.singletonList(90019);
-    private static final List<Integer> CRLF_INJECTION_SCANNERS = Collections.singletonList(40003);
-    private static final List<Integer> EXTERNAL_REDIRECT_SCANNERS = Collections.singletonList(30000);
-    private static final List<Integer> INFORMATION_DISCLOSURE_SCANNERS = Arrays.asList(10023, 10024, 10028, 10029, 10030, 10031, 10032, 10033, 10034);
-    private static final List<Integer> AUTHENTICATION_SCANNERS = Arrays.asList(10105, 10106, 10107);
-
+    private static final List<Integer> CMD_INJECTION_SCANNERS = Arrays.asList(90020);
+    private static final List<Integer> PATH_TRAVERSAL_SCANNERS = Arrays.asList(6);
+    private static final List<Integer> REMOTE_FILE_INCLUSION_SCANNERS = Arrays.asList(7);
+    private static final List<Integer> SERVER_SIDE_INCLUDE_SCANNERS = Arrays.asList(40009);
+    private static final List<Integer> SCRIPT_ACTIVE_SCAN_RULES = Arrays.asList(50000);
+    private static final List<Integer> SERVER_SIDE_CODE_INJECTION_SCANNERS = Arrays.asList(90019);
+    private static final List<Integer> REMOTE_OS_COMMAND_INJECTION_SCANNERS = Arrays.asList(90020);
+    private static final List<Integer> LDAP_INJECTION_SCANNERS = Arrays.asList(40015);
+    private static final List<Integer> XML_EXTERNAL_ENTITY_SCANNERS = Arrays.asList(90023);
+    private static final List<Integer> PADDING_ORACLE_SCANNERS = Arrays.asList(90024);
+    private static final List<Integer> INSECURE_HTTP_METHODS_SCANNERS = Arrays.asList(90028);
+    private static final List<Integer> PARAMETER_TAMPERING_SCANNERS = Arrays.asList(40008, 40009);
+    
     /**
-     * Creates a predefined policy for OWASP Top 10 vulnerabilities.
+     * Creates a high-security policy with all scanners enabled at high strength.
      * 
-     * @return A scan policy configured for OWASP Top 10
+     * @return The high-security policy
      */
-    public static ScanPolicy createOwaspTop10Policy() {
-        LOGGER.debug("Creating OWASP Top 10 scan policy");
+    public ScanPolicy createHighSecurityPolicy() {
+        LOGGER.info("Creating high security policy");
         
-        List<Integer> enabledScanners = new ArrayList<>();
-        enabledScanners.addAll(SQL_INJECTION_SCANNERS);         // A1 - Injection
-        enabledScanners.addAll(AUTHENTICATION_SCANNERS);        // A2 - Broken Authentication
-        enabledScanners.addAll(XSS_SCANNERS);                   // A7 - XSS
+        ScanPolicy.Builder builder = new ScanPolicy.Builder("High Security Policy")
+                .description("Comprehensive security policy with all scanners enabled at high strength")
+                .strength(ScanPolicy.Strength.HIGH)
+                .threshold(ScanPolicy.Threshold.LOW);
         
-        return new ScanPolicy.Builder("OWASP-Top-10")
-                .enableScanners(enabledScanners)
-                .setDefaultStrength(ScanPolicy.Strength.HIGH)
-                .setDefaultThreshold(ScanPolicy.Threshold.MEDIUM)
-                .build();
+        // Enable all scanners
+        builder.enableScanners(SQL_INJECTION_SCANNERS);
+        builder.enableScanners(XSS_SCANNERS);
+        builder.enableScanners(CMD_INJECTION_SCANNERS);
+        builder.enableScanners(PATH_TRAVERSAL_SCANNERS);
+        builder.enableScanners(REMOTE_FILE_INCLUSION_SCANNERS);
+        builder.enableScanners(SERVER_SIDE_INCLUDE_SCANNERS);
+        builder.enableScanners(SCRIPT_ACTIVE_SCAN_RULES);
+        builder.enableScanners(SERVER_SIDE_CODE_INJECTION_SCANNERS);
+        builder.enableScanners(REMOTE_OS_COMMAND_INJECTION_SCANNERS);
+        builder.enableScanners(LDAP_INJECTION_SCANNERS);
+        builder.enableScanners(XML_EXTERNAL_ENTITY_SCANNERS);
+        builder.enableScanners(PADDING_ORACLE_SCANNERS);
+        builder.enableScanners(INSECURE_HTTP_METHODS_SCANNERS);
+        builder.enableScanners(PARAMETER_TAMPERING_SCANNERS);
+        
+        ScanPolicy policy = builder.build();
+        LOGGER.info("High security policy created");
+        return policy;
     }
-
+    
     /**
-     * Creates a predefined policy for SQL injection vulnerabilities.
+     * Creates a medium-security policy with common scanners enabled at medium strength.
      * 
-     * @return A scan policy configured for SQL injection
+     * @return The medium-security policy
      */
-    public static ScanPolicy createSqlInjectionPolicy() {
-        LOGGER.debug("Creating SQL Injection scan policy");
+    public ScanPolicy createMediumSecurityPolicy() {
+        LOGGER.info("Creating medium security policy");
         
-        return new ScanPolicy.Builder("SQL-Injection")
-                .enableScanners(SQL_INJECTION_SCANNERS)
-                .setDefaultStrength(ScanPolicy.Strength.INSANE)
-                .setDefaultThreshold(ScanPolicy.Threshold.LOW)
-                .build();
+        ScanPolicy.Builder builder = new ScanPolicy.Builder("Medium Security Policy")
+                .description("Balanced security policy with common scanners enabled at medium strength")
+                .strength(ScanPolicy.Strength.MEDIUM)
+                .threshold(ScanPolicy.Threshold.MEDIUM);
+        
+        // Enable common scanners
+        builder.enableScanners(SQL_INJECTION_SCANNERS);
+        builder.enableScanners(XSS_SCANNERS);
+        builder.enableScanners(CMD_INJECTION_SCANNERS);
+        builder.enableScanners(PATH_TRAVERSAL_SCANNERS);
+        builder.enableScanners(REMOTE_FILE_INCLUSION_SCANNERS);
+        builder.enableScanners(SERVER_SIDE_CODE_INJECTION_SCANNERS);
+        builder.enableScanners(LDAP_INJECTION_SCANNERS);
+        
+        ScanPolicy policy = builder.build();
+        LOGGER.info("Medium security policy created");
+        return policy;
     }
-
+    
     /**
-     * Creates a predefined policy for XSS vulnerabilities.
+     * Creates a low-security policy with minimal scanners enabled at low strength.
      * 
-     * @return A scan policy configured for XSS
+     * @return The low-security policy
      */
-    public static ScanPolicy createXssPolicy() {
-        LOGGER.debug("Creating XSS scan policy");
+    public ScanPolicy createLowSecurityPolicy() {
+        LOGGER.info("Creating low security policy");
         
-        return new ScanPolicy.Builder("XSS")
-                .enableScanners(XSS_SCANNERS)
-                .setDefaultStrength(ScanPolicy.Strength.HIGH)
-                .setDefaultThreshold(ScanPolicy.Threshold.LOW)
-                .build();
+        ScanPolicy.Builder builder = new ScanPolicy.Builder("Low Security Policy")
+                .description("Basic security policy with minimal scanners enabled at low strength")
+                .strength(ScanPolicy.Strength.LOW)
+                .threshold(ScanPolicy.Threshold.HIGH);
+        
+        // Enable basic scanners
+        builder.enableScanners(SQL_INJECTION_SCANNERS);
+        builder.enableScanners(XSS_SCANNERS);
+        
+        ScanPolicy policy = builder.build();
+        LOGGER.info("Low security policy created");
+        return policy;
     }
-
+    
     /**
-     * Creates a predefined policy for API security testing.
+     * Creates a policy for API security testing.
      * 
-     * @return A scan policy configured for API security
+     * @return The API security policy
      */
-    public static ScanPolicy createApiSecurityPolicy() {
-        LOGGER.debug("Creating API Security scan policy");
+    public ScanPolicy createApiSecurityPolicy() {
+        LOGGER.info("Creating API security policy");
         
-        List<Integer> enabledScanners = new ArrayList<>();
-        enabledScanners.addAll(SQL_INJECTION_SCANNERS);
-        enabledScanners.addAll(INFORMATION_DISCLOSURE_SCANNERS);
-        enabledScanners.addAll(SERVER_SIDE_CODE_INJECTION_SCANNERS);
+        ScanPolicy.Builder builder = new ScanPolicy.Builder("API Security Policy")
+                .description("Security policy tailored for API testing")
+                .strength(ScanPolicy.Strength.MEDIUM)
+                .threshold(ScanPolicy.Threshold.MEDIUM);
         
-        return new ScanPolicy.Builder("API-Security")
-                .enableScanners(enabledScanners)
-                .setDefaultStrength(ScanPolicy.Strength.MEDIUM)
-                .setDefaultThreshold(ScanPolicy.Threshold.MEDIUM)
-                .build();
+        // Enable API-relevant scanners
+        builder.enableScanners(SQL_INJECTION_SCANNERS);
+        builder.enableScanners(CMD_INJECTION_SCANNERS);
+        builder.enableScanners(PATH_TRAVERSAL_SCANNERS);
+        builder.enableScanners(XML_EXTERNAL_ENTITY_SCANNERS);
+        builder.enableScanners(SERVER_SIDE_CODE_INJECTION_SCANNERS);
+        builder.enableScanners(PARAMETER_TAMPERING_SCANNERS);
+        
+        ScanPolicy policy = builder.build();
+        LOGGER.info("API security policy created");
+        return policy;
     }
-
+    
     /**
-     * Creates a comprehensive policy that includes all available scanners.
+     * Creates a policy for OWASP Top 10 vulnerability testing.
      * 
-     * @return A comprehensive scan policy
+     * @return The OWASP Top 10 policy
      */
-    public static ScanPolicy createComprehensivePolicy() {
-        LOGGER.debug("Creating Comprehensive scan policy");
+    public ScanPolicy createOwaspTop10Policy() {
+        LOGGER.info("Creating OWASP Top 10 policy");
         
-        List<Integer> enabledScanners = new ArrayList<>();
-        enabledScanners.addAll(SQL_INJECTION_SCANNERS);
-        enabledScanners.addAll(XSS_SCANNERS);
-        enabledScanners.addAll(CSRF_SCANNERS);
-        enabledScanners.addAll(DIRECTORY_TRAVERSAL_SCANNERS);
-        enabledScanners.addAll(REMOTE_FILE_INCLUSION_SCANNERS);
-        enabledScanners.addAll(SERVER_SIDE_CODE_INJECTION_SCANNERS);
-        enabledScanners.addAll(CRLF_INJECTION_SCANNERS);
-        enabledScanners.addAll(EXTERNAL_REDIRECT_SCANNERS);
-        enabledScanners.addAll(INFORMATION_DISCLOSURE_SCANNERS);
-        enabledScanners.addAll(AUTHENTICATION_SCANNERS);
+        ScanPolicy.Builder builder = new ScanPolicy.Builder("OWASP Top 10 Policy")
+                .description("Security policy focused on OWASP Top 10 vulnerabilities")
+                .strength(ScanPolicy.Strength.MEDIUM)
+                .threshold(ScanPolicy.Threshold.MEDIUM);
         
-        return new ScanPolicy.Builder("Comprehensive")
-                .enableScanners(enabledScanners)
-                .setDefaultStrength(ScanPolicy.Strength.HIGH)
-                .setDefaultThreshold(ScanPolicy.Threshold.MEDIUM)
-                .build();
+        // Enable OWASP Top 10 relevant scanners
+        builder.enableScanners(SQL_INJECTION_SCANNERS); // A1: Injection
+        builder.enableScanners(XSS_SCANNERS); // A7: XSS
+        builder.enableScanners(CMD_INJECTION_SCANNERS); // A1: Injection
+        builder.enableScanners(PATH_TRAVERSAL_SCANNERS); // A5: Broken Access Control
+        builder.enableScanners(XML_EXTERNAL_ENTITY_SCANNERS); // A4: XML External Entities
+        builder.enableScanners(INSECURE_HTTP_METHODS_SCANNERS); // A6: Security Misconfiguration
+        
+        ScanPolicy policy = builder.build();
+        LOGGER.info("OWASP Top 10 policy created");
+        return policy;
     }
-
+    
     /**
-     * Creates a quick scan policy for faster, less thorough scanning.
+     * Creates a custom policy with the specified parameters.
      * 
-     * @return A quick scan policy
+     * @param name The name of the policy
+     * @param description The description of the policy
+     * @param strength The strength of the policy
+     * @param threshold The threshold of the policy
+     * @param enabledScanners The list of scanners to enable
+     * @return The custom policy
+     * @throws ScanConfigurationException If policy creation fails
      */
-    public static ScanPolicy createQuickScanPolicy() {
-        LOGGER.debug("Creating Quick Scan policy");
+    public ScanPolicy createCustomPolicy(String name, String description, ScanPolicy.Strength strength,
+                                        ScanPolicy.Threshold threshold, List<Integer> enabledScanners) 
+            throws ScanConfigurationException {
+        if (name == null || name.trim().isEmpty()) {
+            throw new ScanConfigurationException("Policy name cannot be null or empty");
+        }
         
-        List<Integer> enabledScanners = new ArrayList<>();
-        // Include only a few critical scanners
-        enabledScanners.addAll(SQL_INJECTION_SCANNERS.subList(0, 2));
-        enabledScanners.addAll(XSS_SCANNERS.subList(0, 2));
-        enabledScanners.add(INFORMATION_DISCLOSURE_SCANNERS.get(0));
+        LOGGER.info("Creating custom policy: {}", name);
         
-        return new ScanPolicy.Builder("Quick-Scan")
-                .enableScanners(enabledScanners)
-                .setDefaultStrength(ScanPolicy.Strength.LOW)
-                .setDefaultThreshold(ScanPolicy.Threshold.HIGH)
-                .build();
-    }
-
-    /**
-     * Creates a custom policy with the specified scanners.
-     * 
-     * @param name The policy name
-     * @param enabledScanners List of scanner IDs to enable
-     * @param strength The scan strength
-     * @param threshold The scan threshold
-     * @return A custom scan policy
-     */
-    public static ScanPolicy createCustomPolicy(String name, List<Integer> enabledScanners, 
-                                                ScanPolicy.Strength strength, ScanPolicy.Threshold threshold) {
-        LOGGER.debug("Creating custom scan policy: {}", name);
+        ScanPolicy.Builder builder = new ScanPolicy.Builder(name);
         
-        return new ScanPolicy.Builder(name)
-                .enableScanners(enabledScanners)
-                .setDefaultStrength(strength)
-                .setDefaultThreshold(threshold)
-                .build();
+        if (description != null && !description.trim().isEmpty()) {
+            builder.description(description);
+        }
+        
+        if (strength != null) {
+            builder.strength(strength);
+        }
+        
+        if (threshold != null) {
+            builder.threshold(threshold);
+        }
+        
+        if (enabledScanners != null && !enabledScanners.isEmpty()) {
+            builder.enableScanners(enabledScanners);
+        }
+        
+        ScanPolicy policy = builder.build();
+        LOGGER.info("Custom policy created: {}", name);
+        return policy;
     }
 }

@@ -35,7 +35,7 @@ public class OpenApiScannerTest {
 
     @BeforeEach
     public void setUp() {
-        openApiScanner = new OpenApiScanner(zapClient);
+        openApiScanner = new OpenApiScanner(zapClient, null);
     }
 
     @Test
@@ -46,10 +46,10 @@ public class OpenApiScannerTest {
         mockActiveAndPassiveScan();
         
         // Create scan configuration
-        ScanConfig config = new ScanConfig.Builder("https://example.com/api")
+        ScanConfig config = new ScanConfig.Builder().zapHost("localhost").zapPort(8080).zapApiKey("api-key")
                 .activeScanEnabled(true)
                 .passiveScanEnabled(true)
-                .scanPolicy(PolicyManager.createApiSecurityPolicy())
+                .scanPolicy(new PolicyManager().createApiSecurityPolicy())
                 .build();
         
         // Perform scan
@@ -90,7 +90,7 @@ public class OpenApiScannerTest {
         )).thenReturn(mockApiResponse);
         
         // Create scan configuration
-        ScanConfig config = new ScanConfig.Builder("https://example.com/api")
+        ScanConfig config = new ScanConfig.Builder().zapHost("localhost").zapPort(8080).zapApiKey("api-key")
                 .activeScanEnabled(true)
                 .passiveScanEnabled(true)
                 .build();
@@ -115,7 +115,7 @@ public class OpenApiScannerTest {
         )).thenThrow(new ClientApiException("Failed to import OpenAPI definition"));
         
         // Create scan configuration
-        ScanConfig config = new ScanConfig.Builder("https://example.com/api")
+        ScanConfig config = new ScanConfig.Builder().zapHost("localhost").zapPort(8080).zapApiKey("api-key")
                 .activeScanEnabled(true)
                 .passiveScanEnabled(true)
                 .build();
@@ -134,7 +134,7 @@ public class OpenApiScannerTest {
         mockActiveAndPassiveScan();
         
         // Create scan configuration with include/exclude paths
-        ScanConfig config = new ScanConfig.Builder("https://example.com/api")
+        ScanConfig config = new ScanConfig.Builder().zapHost("localhost").zapPort(8080).zapApiKey("api-key")
                 .activeScanEnabled(true)
                 .passiveScanEnabled(true)
                 .addIncludePath("https://example.com/api/v1/.*")

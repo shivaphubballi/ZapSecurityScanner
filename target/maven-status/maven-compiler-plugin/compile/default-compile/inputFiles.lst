@@ -13,6 +13,7 @@
 /home/runner/workspace/src/main/java/com/securitytesting/zap/policy/PolicyManager.java
 /home/runner/workspace/src/main/java/org/zaproxy/clientapi/core/CoreAPI.java
 /home/runner/workspace/src/main/java/com/securitytesting/zap/exception/AuthenticationException.java
+/home/runner/workspace/src/main/java/com/securitytesting/zap/example/ScannerExample.java
 /home/runner/workspace/src/main/java/com/securitytesting/zap/auth/ApiKeyAuthenticationHandler.java
 /home/runner/workspace/src/main/java/com/securitytesting/zap/ZapScanner.java
 /home/runner/workspace/src/main/java/com/securitytesting/zap/report/Severity.java

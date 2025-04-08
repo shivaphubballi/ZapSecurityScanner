@@ -1,6 +1,8 @@
 package com.securitytesting.zap.policy;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -100,6 +102,21 @@ public class ScanPolicy {
     public ScanPolicy(String name, String description) {
         this(name);
         this.description = description;
+    }
+    
+    /**
+     * Creates a new scan policy from a builder.
+     * 
+     * @param builder The builder
+     */
+    private ScanPolicy(Builder builder) {
+        this.name = builder.name;
+        this.description = builder.description;
+        this.enabledRules = new HashSet<>(builder.enabledRules);
+        this.disabledRules = new HashSet<>(builder.disabledRules);
+        this.defaultPolicy = builder.defaultPolicy;
+        this.strength = builder.strength;
+        this.threshold = builder.threshold;
     }
     
     /**
@@ -274,5 +291,140 @@ public class ScanPolicy {
     public void resetRules() {
         enabledRules.clear();
         disabledRules.clear();
+    }
+    
+    /**
+     * Builder for ScanPolicy.
+     */
+    public static class Builder {
+        private String name;
+        private String description = "";
+        private Set<Integer> enabledRules = new HashSet<>();
+        private Set<Integer> disabledRules = new HashSet<>();
+        private boolean defaultPolicy = false;
+        private Strength strength = Strength.MEDIUM;
+        private Threshold threshold = Threshold.MEDIUM;
+        
+        /**
+         * Creates a new builder with the specified name.
+         * 
+         * @param name The name of the scan policy
+         */
+        public Builder(String name) {
+            this.name = name;
+        }
+        
+        /**
+         * Sets the description of the scan policy.
+         * 
+         * @param description The description of the scan policy
+         * @return This builder
+         */
+        public Builder description(String description) {
+            this.description = description;
+            return this;
+        }
+        
+        /**
+         * Sets whether this is the default policy.
+         * 
+         * @param defaultPolicy True if this is the default policy, false otherwise
+         * @return This builder
+         */
+        public Builder defaultPolicy(boolean defaultPolicy) {
+            this.defaultPolicy = defaultPolicy;
+            return this;
+        }
+        
+        /**
+         * Sets the strength of the scan policy.
+         * 
+         * @param strength The strength of the scan policy
+         * @return This builder
+         */
+        public Builder strength(Strength strength) {
+            this.strength = strength;
+            return this;
+        }
+        
+        /**
+         * Sets the threshold of the scan policy.
+         * 
+         * @param threshold The threshold of the scan policy
+         * @return This builder
+         */
+        public Builder threshold(Threshold threshold) {
+            this.threshold = threshold;
+            return this;
+        }
+        
+        /**
+         * Enables a specific scanning rule.
+         * 
+         * @param ruleId The ID of the rule to enable
+         * @return This builder
+         */
+        public Builder enableRule(int ruleId) {
+            enabledRules.add(ruleId);
+            disabledRules.remove(ruleId);
+            return this;
+        }
+        
+        /**
+         * Disables a specific scanning rule.
+         * 
+         * @param ruleId The ID of the rule to disable
+         * @return This builder
+         */
+        public Builder disableRule(int ruleId) {
+            disabledRules.add(ruleId);
+            enabledRules.remove(ruleId);
+            return this;
+        }
+        
+        /**
+         * Enables multiple scanning rules.
+         * 
+         * @param ruleIds The IDs of the rules to enable
+         * @return This builder
+         */
+        public Builder enableRules(Set<Integer> ruleIds) {
+            enabledRules.addAll(ruleIds);
+            disabledRules.removeAll(ruleIds);
+            return this;
+        }
+        
+        /**
+         * Enables multiple scanning rules.
+         * 
+         * @param ruleIds The IDs of the rules to enable
+         * @return This builder
+         */
+        public Builder enableScanners(List<Integer> ruleIds) {
+            enabledRules.addAll(ruleIds);
+            disabledRules.removeAll(ruleIds);
+            return this;
+        }
+        
+        /**
+         * Disables multiple scanning rules.
+         * 
+         * @param ruleIds The IDs of the rules to disable
+         * @return This builder
+         */
+        public Builder disableRules(Set<Integer> ruleIds) {
+            disabledRules.addAll(ruleIds);
+            enabledRules.removeAll(ruleIds);
+            return this;
+        }
+        
+        /**
+         * Builds the scan policy.
+         * 
+         * @return The scan policy
+         */
+        public ScanPolicy build() {
+            return new ScanPolicy(this);
+        }
     }
 }

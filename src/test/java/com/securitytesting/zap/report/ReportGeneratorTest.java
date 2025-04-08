@@ -53,7 +53,7 @@ public class ReportGeneratorTest {
         when(mockApiResponse.toString()).thenReturn("2.12.0");
         
         // Generate report
-        ScanResult result = reportGenerator.generateReport(targetUrl);
+        ScanResult result = reportGenerator.generateScanResult(targetUrl, 0);
         
         // Verify result
         assertNotNull(result);
@@ -76,7 +76,7 @@ public class ReportGeneratorTest {
         when(mockApiResponse.toString()).thenReturn("2.12.0");
         
         // Generate report
-        ScanResult result = reportGenerator.generateReport(targetUrl);
+        ScanResult result = reportGenerator.generateScanResult(targetUrl, 0);
         
         // Verify result
         assertNotNull(result);
@@ -93,7 +93,7 @@ public class ReportGeneratorTest {
         
         // Generate report (should throw exception)
         assertThrows(ZapScannerException.class, () -> {
-            reportGenerator.generateReport(targetUrl);
+            reportGenerator.generateScanResult(targetUrl, 0);
         });
     }
 

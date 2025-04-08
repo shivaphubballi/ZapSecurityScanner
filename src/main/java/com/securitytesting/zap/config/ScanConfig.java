@@ -1,267 +1,308 @@
 package com.securitytesting.zap.config;
 
-import com.securitytesting.zap.auth.AuthenticationHandler;
-import com.securitytesting.zap.policy.ScanPolicy;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
- * Configuration class for ZAP security scans.
- * Provides a builder pattern for easy creation of scan configurations.
+ * Configuration for ZAP security scans.
+ * Provides settings for all scan types.
  */
 public class ScanConfig {
 
-    // Basic scan parameters
-    private final String targetUrl;
-    private final boolean spiderEnabled;
-    private final boolean ajaxSpiderEnabled;
-    private final boolean passiveScanEnabled;
-    private final boolean activeScanEnabled;
-    private final int timeoutInMinutes;
+    // ZAP connection settings
+    private final String zapHost;
+    private final int zapPort;
+    private final String zapApiKey;
     
-    // Authentication configuration
+    // Context settings
+    private final String contextName;
+    private final boolean resetContextBeforeScan;
+    
+    // Authentication settings
     private final AuthenticationConfig authenticationConfig;
-    private final AuthenticationHandler authenticationHandler;
     
-    // Scan policy configuration
-    private final ScanPolicy scanPolicy;
+    // Spider settings
+    private final int maxSpiderDepth;
+    private final int maxSpiderDurationInMinutes;
     
-    // Context configuration
-    private final List<String> includePaths;
-    private final List<String> excludePaths;
-    private final Map<String, String> contextParameters;
-
-    private ScanConfig(Builder builder) {
-        this.targetUrl = builder.targetUrl;
-        this.spiderEnabled = builder.spiderEnabled;
-        this.ajaxSpiderEnabled = builder.ajaxSpiderEnabled;
-        this.passiveScanEnabled = builder.passiveScanEnabled;
-        this.activeScanEnabled = builder.activeScanEnabled;
-        this.timeoutInMinutes = builder.timeoutInMinutes;
-        this.authenticationConfig = builder.authenticationConfig;
-        this.authenticationHandler = builder.authenticationHandler;
-        this.scanPolicy = builder.scanPolicy;
-        this.includePaths = new ArrayList<>(builder.includePaths);
-        this.excludePaths = new ArrayList<>(builder.excludePaths);
-        this.contextParameters = new HashMap<>(builder.contextParameters);
-    }
-
-    public String getTargetUrl() {
-        return targetUrl;
-    }
-
-    public boolean isSpiderEnabled() {
-        return spiderEnabled;
-    }
-
-    public boolean isAjaxSpiderEnabled() {
-        return ajaxSpiderEnabled;
-    }
-
-    public boolean isPassiveScanEnabled() {
-        return passiveScanEnabled;
-    }
-
-    public boolean isActiveScanEnabled() {
-        return activeScanEnabled;
-    }
-
-    public int getTimeoutInMinutes() {
-        return timeoutInMinutes;
-    }
-
-    public AuthenticationConfig getAuthenticationConfig() {
-        return authenticationConfig;
-    }
-
-    public AuthenticationHandler getAuthenticationHandler() {
-        return authenticationHandler;
-    }
-
-    public ScanPolicy getScanPolicy() {
-        return scanPolicy;
-    }
-
-    public List<String> getIncludePaths() {
-        return new ArrayList<>(includePaths);
-    }
-
-    public List<String> getExcludePaths() {
-        return new ArrayList<>(excludePaths);
-    }
-
-    public Map<String, String> getContextParameters() {
-        return new HashMap<>(contextParameters);
-    }
-
-    public boolean requiresAuthentication() {
-        return authenticationConfig != null && authenticationHandler != null;
-    }
-
+    // Scan settings
+    private final int maxPassiveScanDurationInMinutes;
+    private final int maxActiveScanDurationInMinutes;
+    private final int threadCount;
+    
     /**
-     * Builder for creating ScanConfig instances.
+     * Builder for scan configuration.
      */
     public static class Builder {
-        // Required parameters
-        private final String targetUrl;
+        // ZAP connection settings with defaults
+        private String zapHost = "localhost";
+        private int zapPort = 8080;
+        private String zapApiKey = "";
         
-        // Optional parameters with default values
-        private boolean spiderEnabled = true;
-        private boolean ajaxSpiderEnabled = false;
-        private boolean passiveScanEnabled = true;
-        private boolean activeScanEnabled = true;
-        private int timeoutInMinutes = 60;
-        private AuthenticationConfig authenticationConfig = null;
-        private AuthenticationHandler authenticationHandler = null;
-        private ScanPolicy scanPolicy = null;
-        private final List<String> includePaths = new ArrayList<>();
-        private final List<String> excludePaths = new ArrayList<>();
-        private final Map<String, String> contextParameters = new HashMap<>();
-
+        // Context settings with defaults
+        private String contextName = "Default Context";
+        private boolean resetContextBeforeScan = true;
+        
+        // Authentication settings
+        private AuthenticationConfig authenticationConfig;
+        
+        // Spider settings with defaults
+        private int maxSpiderDepth = 5;
+        private int maxSpiderDurationInMinutes = 10;
+        
+        // Scan settings with defaults
+        private int maxPassiveScanDurationInMinutes = 10;
+        private int maxActiveScanDurationInMinutes = 60;
+        private int threadCount = 5;
+        
         /**
-         * Creates a new builder for a scan configuration.
+         * Sets the ZAP host.
          * 
-         * @param targetUrl The URL of the target application to scan
+         * @param zapHost The ZAP host
+         * @return The builder
          */
-        public Builder(String targetUrl) {
-            if (targetUrl == null || targetUrl.trim().isEmpty()) {
-                throw new IllegalArgumentException("Target URL cannot be null or empty");
-            }
-            this.targetUrl = targetUrl;
-        }
-
-        /**
-         * Sets whether to enable the traditional spider.
-         * 
-         * @param spiderEnabled True to enable the spider, false to disable
-         * @return This builder for method chaining
-         */
-        public Builder spiderEnabled(boolean spiderEnabled) {
-            this.spiderEnabled = spiderEnabled;
+        public Builder zapHost(String zapHost) {
+            this.zapHost = zapHost;
             return this;
         }
-
+        
         /**
-         * Sets whether to enable the AJAX spider.
+         * Sets the ZAP port.
          * 
-         * @param ajaxSpiderEnabled True to enable the AJAX spider, false to disable
-         * @return This builder for method chaining
+         * @param zapPort The ZAP port
+         * @return The builder
          */
-        public Builder ajaxSpiderEnabled(boolean ajaxSpiderEnabled) {
-            this.ajaxSpiderEnabled = ajaxSpiderEnabled;
+        public Builder zapPort(int zapPort) {
+            this.zapPort = zapPort;
             return this;
         }
-
+        
         /**
-         * Sets whether to enable passive scanning.
+         * Sets the ZAP API key.
          * 
-         * @param passiveScanEnabled True to enable passive scanning, false to disable
-         * @return This builder for method chaining
+         * @param zapApiKey The ZAP API key
+         * @return The builder
          */
-        public Builder passiveScanEnabled(boolean passiveScanEnabled) {
-            this.passiveScanEnabled = passiveScanEnabled;
+        public Builder zapApiKey(String zapApiKey) {
+            this.zapApiKey = zapApiKey;
             return this;
         }
-
+        
         /**
-         * Sets whether to enable active scanning.
+         * Sets the context name.
          * 
-         * @param activeScanEnabled True to enable active scanning, false to disable
-         * @return This builder for method chaining
+         * @param contextName The context name
+         * @return The builder
          */
-        public Builder activeScanEnabled(boolean activeScanEnabled) {
-            this.activeScanEnabled = activeScanEnabled;
+        public Builder contextName(String contextName) {
+            this.contextName = contextName;
             return this;
         }
-
+        
         /**
-         * Sets the maximum duration for the scan.
+         * Sets whether to reset the context before scanning.
          * 
-         * @param timeoutInMinutes Timeout in minutes
-         * @return This builder for method chaining
+         * @param resetContextBeforeScan Whether to reset the context
+         * @return The builder
          */
-        public Builder timeoutInMinutes(int timeoutInMinutes) {
-            if (timeoutInMinutes <= 0) {
-                throw new IllegalArgumentException("Timeout must be greater than 0");
-            }
-            this.timeoutInMinutes = timeoutInMinutes;
+        public Builder resetContextBeforeScan(boolean resetContextBeforeScan) {
+            this.resetContextBeforeScan = resetContextBeforeScan;
             return this;
         }
-
+        
         /**
-         * Sets the authentication configuration and handler.
+         * Sets the authentication configuration.
          * 
-         * @param authConfig Authentication configuration
-         * @param authHandler Authentication handler
-         * @return This builder for method chaining
+         * @param authenticationConfig The authentication configuration
+         * @return The builder
          */
-        public Builder authentication(AuthenticationConfig authConfig, AuthenticationHandler authHandler) {
-            this.authenticationConfig = authConfig;
-            this.authenticationHandler = authHandler;
+        public Builder authenticationConfig(AuthenticationConfig authenticationConfig) {
+            this.authenticationConfig = authenticationConfig;
             return this;
         }
-
+        
         /**
-         * Sets the scan policy to use.
+         * Sets the maximum spider depth.
          * 
-         * @param scanPolicy The scan policy
-         * @return This builder for method chaining
+         * @param maxSpiderDepth The maximum spider depth
+         * @return The builder
          */
-        public Builder scanPolicy(ScanPolicy scanPolicy) {
-            this.scanPolicy = scanPolicy;
+        public Builder maxSpiderDepth(int maxSpiderDepth) {
+            this.maxSpiderDepth = maxSpiderDepth;
             return this;
         }
-
+        
         /**
-         * Adds a path to include in the scan.
+         * Sets the maximum spider duration.
          * 
-         * @param includePath Path to include (regex pattern)
-         * @return This builder for method chaining
+         * @param duration The duration
+         * @param timeUnit The time unit
+         * @return The builder
          */
-        public Builder addIncludePath(String includePath) {
-            if (includePath != null && !includePath.trim().isEmpty()) {
-                this.includePaths.add(includePath);
-            }
+        public Builder maxSpiderDuration(int duration, TimeUnit timeUnit) {
+            this.maxSpiderDurationInMinutes = (int) timeUnit.toMinutes(duration);
             return this;
         }
-
+        
         /**
-         * Adds a path to exclude from the scan.
+         * Sets the maximum passive scan duration.
          * 
-         * @param excludePath Path to exclude (regex pattern)
-         * @return This builder for method chaining
+         * @param duration The duration
+         * @param timeUnit The time unit
+         * @return The builder
          */
-        public Builder addExcludePath(String excludePath) {
-            if (excludePath != null && !excludePath.trim().isEmpty()) {
-                this.excludePaths.add(excludePath);
-            }
+        public Builder maxPassiveScanDuration(int duration, TimeUnit timeUnit) {
+            this.maxPassiveScanDurationInMinutes = (int) timeUnit.toMinutes(duration);
             return this;
         }
-
+        
         /**
-         * Adds a context parameter for the scan.
+         * Sets the maximum active scan duration.
          * 
-         * @param key Parameter key
-         * @param value Parameter value
-         * @return This builder for method chaining
+         * @param duration The duration
+         * @param timeUnit The time unit
+         * @return The builder
          */
-        public Builder addContextParameter(String key, String value) {
-            if (key != null && !key.trim().isEmpty()) {
-                this.contextParameters.put(key, value);
-            }
+        public Builder maxActiveScanDuration(int duration, TimeUnit timeUnit) {
+            this.maxActiveScanDurationInMinutes = (int) timeUnit.toMinutes(duration);
             return this;
         }
-
+        
+        /**
+         * Sets the thread count.
+         * 
+         * @param threadCount The thread count
+         * @return The builder
+         */
+        public Builder threadCount(int threadCount) {
+            this.threadCount = threadCount;
+            return this;
+        }
+        
         /**
          * Builds the scan configuration.
          * 
-         * @return A new ScanConfig instance
+         * @return The scan configuration
          */
         public ScanConfig build() {
             return new ScanConfig(this);
         }
+    }
+    
+    /**
+     * Creates a new scan configuration from a builder.
+     * 
+     * @param builder The builder
+     */
+    private ScanConfig(Builder builder) {
+        this.zapHost = builder.zapHost;
+        this.zapPort = builder.zapPort;
+        this.zapApiKey = builder.zapApiKey;
+        this.contextName = builder.contextName;
+        this.resetContextBeforeScan = builder.resetContextBeforeScan;
+        this.authenticationConfig = builder.authenticationConfig;
+        this.maxSpiderDepth = builder.maxSpiderDepth;
+        this.maxSpiderDurationInMinutes = builder.maxSpiderDurationInMinutes;
+        this.maxPassiveScanDurationInMinutes = builder.maxPassiveScanDurationInMinutes;
+        this.maxActiveScanDurationInMinutes = builder.maxActiveScanDurationInMinutes;
+        this.threadCount = builder.threadCount;
+    }
+    
+    /**
+     * Gets the ZAP host.
+     * 
+     * @return The ZAP host
+     */
+    public String getZapHost() {
+        return zapHost;
+    }
+    
+    /**
+     * Gets the ZAP port.
+     * 
+     * @return The ZAP port
+     */
+    public int getZapPort() {
+        return zapPort;
+    }
+    
+    /**
+     * Gets the ZAP API key.
+     * 
+     * @return The ZAP API key
+     */
+    public String getZapApiKey() {
+        return zapApiKey;
+    }
+    
+    /**
+     * Gets the context name.
+     * 
+     * @return The context name
+     */
+    public String getContextName() {
+        return contextName;
+    }
+    
+    /**
+     * Gets whether to reset the context before scanning.
+     * 
+     * @return Whether to reset the context
+     */
+    public boolean isResetContextBeforeScan() {
+        return resetContextBeforeScan;
+    }
+    
+    /**
+     * Gets the authentication configuration.
+     * 
+     * @return The authentication configuration
+     */
+    public AuthenticationConfig getAuthenticationConfig() {
+        return authenticationConfig;
+    }
+    
+    /**
+     * Gets the maximum spider depth.
+     * 
+     * @return The maximum spider depth
+     */
+    public int getMaxSpiderDepth() {
+        return maxSpiderDepth;
+    }
+    
+    /**
+     * Gets the maximum spider duration in minutes.
+     * 
+     * @return The maximum spider duration
+     */
+    public int getMaxSpiderDurationInMinutes() {
+        return maxSpiderDurationInMinutes;
+    }
+    
+    /**
+     * Gets the maximum passive scan duration in minutes.
+     * 
+     * @return The maximum passive scan duration
+     */
+    public int getMaxPassiveScanDurationInMinutes() {
+        return maxPassiveScanDurationInMinutes;
+    }
+    
+    /**
+     * Gets the maximum active scan duration in minutes.
+     * 
+     * @return The maximum active scan duration
+     */
+    public int getMaxActiveScanDurationInMinutes() {
+        return maxActiveScanDurationInMinutes;
+    }
+    
+    /**
+     * Gets the thread count.
+     * 
+     * @return The thread count
+     */
+    public int getThreadCount() {
+        return threadCount;
     }
 }

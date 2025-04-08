@@ -7,85 +7,57 @@ package org.zaproxy.clientapi.core;
 public class Script {
     
     /**
-     * Load a script
-     *
+     * Runs a script.
+     * 
+     * @param scriptName The name of the script
+     * @return The API response
+     * @throws ClientApiException If an error occurs
+     */
+    public ApiResponse runScript(String scriptName) throws ClientApiException {
+        return new ApiResponseElement("result", "Script run successfully");
+    }
+    
+    /**
+     * Loads a script.
+     * 
      * @param scriptName The name of the script
      * @param scriptType The type of the script
-     * @param scriptEngine The script engine
-     * @param fileName The script file name
-     * @param scriptDescription The script description
-     * @param charset The character set
+     * @param scriptEngine The engine of the script
+     * @param fileName The file name of the script
+     * @param scriptDescription The description of the script
      * @return The API response
      * @throws ClientApiException If an error occurs
      */
     public ApiResponse load(String scriptName, String scriptType, String scriptEngine, 
-                           String fileName, String scriptDescription, String charset) throws ClientApiException {
-        // Stub implementation
-        return new ApiResponseElement("OK", "Script loaded");
+                          String fileName, String scriptDescription) throws ClientApiException {
+        return new ApiResponseElement("result", "Script loaded successfully");
     }
     
     /**
-     * Load a script
-     *
+     * Loads a script with additional parameters.
+     * 
      * @param scriptName The name of the script
      * @param scriptType The type of the script
-     * @param scriptEngine The script engine
-     * @param fileName The script file name
-     * @param scriptDescription The script description
+     * @param scriptEngine The engine of the script
+     * @param fileName The file name of the script
+     * @param scriptDescription The description of the script
+     * @param charset The character set of the script
      * @return The API response
      * @throws ClientApiException If an error occurs
      */
     public ApiResponse load(String scriptName, String scriptType, String scriptEngine, 
-                           String fileName, String scriptDescription) throws ClientApiException {
-        // Stub implementation
-        return load(scriptName, scriptType, scriptEngine, fileName, scriptDescription, null);
+                          String fileName, String scriptDescription, String charset) throws ClientApiException {
+        return new ApiResponseElement("result", "Script loaded successfully");
     }
     
     /**
-     * Remove a script
-     *
+     * Removes a script.
+     * 
      * @param scriptName The name of the script
      * @return The API response
      * @throws ClientApiException If an error occurs
      */
     public ApiResponse remove(String scriptName) throws ClientApiException {
-        // Stub implementation
-        return new ApiResponseElement("OK", "Script removed");
-    }
-    
-    /**
-     * Run a script
-     *
-     * @param scriptName The name of the script
-     * @return The API response
-     * @throws ClientApiException If an error occurs
-     */
-    public ApiResponse runStandAloneScript(String scriptName) throws ClientApiException {
-        // Stub implementation
-        return new ApiResponseElement("OK", "Script executed");
-    }
-    
-    /**
-     * Enable a script
-     *
-     * @param scriptName The name of the script
-     * @return The API response
-     * @throws ClientApiException If an error occurs
-     */
-    public ApiResponse enable(String scriptName) throws ClientApiException {
-        // Stub implementation
-        return new ApiResponseElement("OK", "Script enabled");
-    }
-    
-    /**
-     * Disable a script
-     *
-     * @param scriptName The name of the script
-     * @return The API response
-     * @throws ClientApiException If an error occurs
-     */
-    public ApiResponse disable(String scriptName) throws ClientApiException {
-        // Stub implementation
-        return new ApiResponseElement("OK", "Script disabled");
+        return new ApiResponseElement("result", "Script removed successfully");
     }
 }

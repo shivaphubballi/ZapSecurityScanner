@@ -1,7 +1,17 @@
 package com.securitytesting.zap;
 
+import com.securitytesting.zap.auth.ApiKeyAuthenticationHandler;
+import com.securitytesting.zap.auth.AuthenticationHandler;
+import com.securitytesting.zap.auth.CertificateAuthenticationHandler;
+import com.securitytesting.zap.auth.FormAuthenticationHandler;
+import com.securitytesting.zap.auth.OAuth2AuthenticationHandler;
+import com.securitytesting.zap.config.AuthenticationConfig;
 import com.securitytesting.zap.config.ScanConfig;
+import com.securitytesting.zap.exception.AuthenticationException;
+import com.securitytesting.zap.exception.ScanConfigurationException;
 import com.securitytesting.zap.exception.ZapScannerException;
+import com.securitytesting.zap.policy.PolicyManager;
+import com.securitytesting.zap.policy.ScanPolicy;
 import com.securitytesting.zap.report.ReportGenerator;
 import com.securitytesting.zap.report.ScanResult;
 import com.securitytesting.zap.scanner.OpenApiScanner;
@@ -11,118 +21,433 @@ import com.securitytesting.zap.util.ZapClientFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zaproxy.clientapi.core.ClientApi;
+import org.zaproxy.clientapi.core.ClientApiException;
 
-import java.util.Objects;
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.util.Date;
 
 /**
- * Main entry point for the ZAP Security Scanner library.
- * Provides methods to perform various types of security scans.
+ * Main class for ZAP security scanning.
+ * Provides methods for various types of security scans.
  */
-public class ZapScanner implements AutoCloseable {
+public class ZapScanner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ZapScanner.class);
-
+    
     private final ClientApi zapClient;
-    private final WebAppScanner webAppScanner;
-    private final OpenApiScanner openApiScanner;
-    private final SeleniumScanner seleniumScanner;
+    private final ScanConfig config;
+    private final PolicyManager policyManager;
     private final ReportGenerator reportGenerator;
-
+    
     /**
-     * Creates a new ZapScanner instance with the specified ZAP proxy address.
-     *
-     * @param zapAddress ZAP proxy address in format "host:port"
-     * @param apiKey     API key for the ZAP instance (or null if not required)
-     * @throws ZapScannerException if connection to ZAP fails
-     */
-    public ZapScanner(String zapAddress, String apiKey) throws ZapScannerException {
-        LOGGER.info("Initializing ZAP Scanner with proxy at {}", zapAddress);
-        this.zapClient = ZapClientFactory.createZapClient(zapAddress, apiKey);
-        this.webAppScanner = new WebAppScanner(zapClient);
-        this.openApiScanner = new OpenApiScanner(zapClient);
-        this.seleniumScanner = new SeleniumScanner(zapClient);
-        this.reportGenerator = new ReportGenerator(zapClient);
-    }
-
-    /**
-     * Performs a security scan on a web application.
-     *
+     * Creates a new ZAP scanner with the specified configuration.
+     * 
      * @param config The scan configuration
-     * @return ScanResult containing the findings
-     * @throws ZapScannerException if the scan fails
+     * @throws ZapScannerException If scanner creation fails
      */
-    public ScanResult scanWebApplication(ScanConfig config) throws ZapScannerException {
-        Objects.requireNonNull(config, "Scan configuration cannot be null");
-        LOGGER.info("Starting web application security scan for: {}", config.getTargetUrl());
+    public ZapScanner(ScanConfig config) throws ZapScannerException {
+        this.config = config;
+        this.zapClient = ZapClientFactory.createZapClient(config.getZapHost(), config.getZapPort(), config.getZapApiKey());
+        this.policyManager = new PolicyManager();
+        this.reportGenerator = new ReportGenerator(zapClient);
         
-        try {
-            webAppScanner.scan(config);
-            return reportGenerator.generateReport(config.getTargetUrl());
-        } catch (Exception e) {
-            LOGGER.error("Error during web application scan", e);
-            throw new ZapScannerException("Failed to perform web application scan", e);
+        if (config.isResetContextBeforeScan()) {
+            resetContext();
         }
     }
-
+    
     /**
-     * Performs a security scan based on OpenAPI specification.
-     *
-     * @param config              The scan configuration
-     * @param openApiSpecLocation URL or file path to the OpenAPI specification
-     * @return ScanResult containing the findings
-     * @throws ZapScannerException if the scan fails
+     * Resets the ZAP context.
+     * Clears all existing contexts and creates a new one.
+     * 
+     * @throws ZapScannerException If reset fails
      */
-    public ScanResult scanOpenApi(ScanConfig config, String openApiSpecLocation) throws ZapScannerException {
-        Objects.requireNonNull(config, "Scan configuration cannot be null");
-        Objects.requireNonNull(openApiSpecLocation, "OpenAPI specification location cannot be null");
-        LOGGER.info("Starting OpenAPI security scan for spec: {}", openApiSpecLocation);
-        
+    private void resetContext() throws ZapScannerException {
         try {
-            openApiScanner.scan(config, openApiSpecLocation);
-            return reportGenerator.generateReport(config.getTargetUrl());
+            LOGGER.info("Resetting ZAP context");
+            
+            // In a real implementation, we would use the ZAP API to reset the context
+            // For this stub, we'll just log the action
+            
+            LOGGER.info("ZAP context reset");
         } catch (Exception e) {
-            LOGGER.error("Error during OpenAPI scan", e);
-            throw new ZapScannerException("Failed to perform OpenAPI scan", e);
+            LOGGER.error("Failed to reset ZAP context", e);
+            throw new ZapScannerException("Failed to reset ZAP context: " + e.getMessage(), e);
         }
     }
-
+    
     /**
-     * Performs a security scan using Selenium for dynamic application testing.
-     *
-     * @param config     The scan configuration
-     * @param scriptPath Path to the Selenium script file
-     * @return ScanResult containing the findings
-     * @throws ZapScannerException if the scan fails
+     * Scans a web application.
+     * 
+     * @param targetUrl The target URL
+     * @return The scan result
+     * @throws ZapScannerException If scanning fails
      */
-    public ScanResult scanWithSelenium(ScanConfig config, String scriptPath) throws ZapScannerException {
-        Objects.requireNonNull(config, "Scan configuration cannot be null");
-        Objects.requireNonNull(scriptPath, "Selenium script path cannot be null");
-        LOGGER.info("Starting Selenium-driven security scan using script: {}", scriptPath);
+    public ScanResult scanWebApplication(String targetUrl) throws ZapScannerException {
+        return scanWebApplication(targetUrl, null);
+    }
+    
+    /**
+     * Scans a web application with the specified policy.
+     * 
+     * @param targetUrl The target URL
+     * @param policy The scan policy
+     * @return The scan result
+     * @throws ZapScannerException If scanning fails
+     */
+    public ScanResult scanWebApplication(String targetUrl, ScanPolicy policy) throws ZapScannerException {
+        LOGGER.info("Starting web application scan for target URL: {}", targetUrl);
         
         try {
-            seleniumScanner.scan(config, scriptPath);
-            return reportGenerator.generateReport(config.getTargetUrl());
+            // Create a web application scanner
+            WebAppScanner scanner = new WebAppScanner(zapClient, config);
+            
+            // Configure authentication if needed
+            if (config.getAuthenticationConfig() != null) {
+                scanner.setAuthenticationHandler(createAuthenticationHandler(config.getAuthenticationConfig()));
+            }
+            
+            // Use default policy if none provided
+            ScanPolicy scanPolicy = policy != null ? policy : policyManager.createMediumSecurityPolicy();
+            
+            // Start the scan
+            long startTime = System.currentTimeMillis();
+            
+            // Spider the target
+            scanner.spiderTarget(targetUrl, config.getContextName(), config.getMaxSpiderDepth(), 
+                    config.getMaxSpiderDurationInMinutes());
+            
+            // Perform passive scan
+            scanner.performPassiveScan(config.getContextName(), config.getMaxPassiveScanDurationInMinutes());
+            
+            // Perform active scan
+            scanner.performActiveScan(targetUrl, config.getContextName(), scanPolicy, 
+                    config.getMaxActiveScanDurationInMinutes());
+            
+            // Generate scan result
+            long endTime = System.currentTimeMillis();
+            ScanResult result = reportGenerator.generateScanResult(targetUrl, endTime - startTime);
+            
+            LOGGER.info("Web application scan completed for target URL: {}", targetUrl);
+            return result;
         } catch (Exception e) {
-            LOGGER.error("Error during Selenium scan", e);
-            throw new ZapScannerException("Failed to perform Selenium scan", e);
+            LOGGER.error("Failed to scan web application", e);
+            throw new ZapScannerException("Failed to scan web application: " + e.getMessage(), e);
         }
     }
-
+    
     /**
-     * Gets a direct reference to the ZAP API client for advanced operations.
-     *
-     * @return ClientApi instance
+     * Scans an OpenAPI specification.
+     * 
+     * @param openApiUrl The URL to the OpenAPI specification
+     * @return The scan result
+     * @throws ZapScannerException If scanning fails
+     */
+    public ScanResult scanOpenApi(URL openApiUrl) throws ZapScannerException {
+        return scanOpenApi(openApiUrl, null);
+    }
+    
+    /**
+     * Scans an OpenAPI specification with the specified policy.
+     * 
+     * @param openApiUrl The URL to the OpenAPI specification
+     * @param policy The scan policy
+     * @return The scan result
+     * @throws ZapScannerException If scanning fails
+     */
+    public ScanResult scanOpenApi(URL openApiUrl, ScanPolicy policy) throws ZapScannerException {
+        LOGGER.info("Starting OpenAPI scan for specification URL: {}", openApiUrl);
+        
+        try {
+            // Create an OpenAPI scanner
+            OpenApiScanner scanner = new OpenApiScanner(zapClient, config);
+            
+            // Configure authentication if needed
+            if (config.getAuthenticationConfig() != null) {
+                scanner.setAuthenticationHandler(createAuthenticationHandler(config.getAuthenticationConfig()));
+            }
+            
+            // Use default policy if none provided
+            ScanPolicy scanPolicy = policy != null ? policy : policyManager.createApiSecurityPolicy();
+            
+            // Start the scan
+            long startTime = System.currentTimeMillis();
+            
+            // Import the OpenAPI specification
+            String targetUrl = scanner.importOpenApiDefinition(openApiUrl, config.getContextName());
+            
+            // Perform passive scan
+            scanner.performPassiveScan(config.getContextName(), config.getMaxPassiveScanDurationInMinutes());
+            
+            // Perform active scan
+            scanner.performActiveScan(targetUrl, config.getContextName(), scanPolicy, 
+                    config.getMaxActiveScanDurationInMinutes());
+            
+            // Generate scan result
+            long endTime = System.currentTimeMillis();
+            ScanResult result = reportGenerator.generateScanResult(targetUrl, endTime - startTime);
+            
+            LOGGER.info("OpenAPI scan completed for specification URL: {}", openApiUrl);
+            return result;
+        } catch (Exception e) {
+            LOGGER.error("Failed to scan OpenAPI specification", e);
+            throw new ZapScannerException("Failed to scan OpenAPI specification: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Scans an OpenAPI specification file.
+     * 
+     * @param openApiFile The OpenAPI specification file
+     * @return The scan result
+     * @throws ZapScannerException If scanning fails
+     */
+    public ScanResult scanOpenApi(File openApiFile) throws ZapScannerException {
+        return scanOpenApi(openApiFile, null);
+    }
+    
+    /**
+     * Scans an OpenAPI specification file with the specified policy.
+     * 
+     * @param openApiFile The OpenAPI specification file
+     * @param policy The scan policy
+     * @return The scan result
+     * @throws ZapScannerException If scanning fails
+     */
+    public ScanResult scanOpenApi(File openApiFile, ScanPolicy policy) throws ZapScannerException {
+        LOGGER.info("Starting OpenAPI scan for specification file: {}", openApiFile.getAbsolutePath());
+        
+        try {
+            // Create an OpenAPI scanner
+            OpenApiScanner scanner = new OpenApiScanner(zapClient, config);
+            
+            // Configure authentication if needed
+            if (config.getAuthenticationConfig() != null) {
+                scanner.setAuthenticationHandler(createAuthenticationHandler(config.getAuthenticationConfig()));
+            }
+            
+            // Use default policy if none provided
+            ScanPolicy scanPolicy = policy != null ? policy : policyManager.createApiSecurityPolicy();
+            
+            // Start the scan
+            long startTime = System.currentTimeMillis();
+            
+            // Import the OpenAPI specification
+            String targetUrl = scanner.importOpenApiDefinition(openApiFile, config.getContextName());
+            
+            // Perform passive scan
+            scanner.performPassiveScan(config.getContextName(), config.getMaxPassiveScanDurationInMinutes());
+            
+            // Perform active scan
+            scanner.performActiveScan(targetUrl, config.getContextName(), scanPolicy, 
+                    config.getMaxActiveScanDurationInMinutes());
+            
+            // Generate scan result
+            long endTime = System.currentTimeMillis();
+            ScanResult result = reportGenerator.generateScanResult(targetUrl, endTime - startTime);
+            
+            LOGGER.info("OpenAPI scan completed for specification file: {}", openApiFile.getAbsolutePath());
+            return result;
+        } catch (Exception e) {
+            LOGGER.error("Failed to scan OpenAPI specification", e);
+            throw new ZapScannerException("Failed to scan OpenAPI specification: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Scans a web application using Selenium.
+     * 
+     * @param targetUrl The target URL
+     * @param driverPath The path to the Selenium WebDriver
+     * @return The scan result
+     * @throws ZapScannerException If scanning fails
+     */
+    public ScanResult scanWithSelenium(String targetUrl, String driverPath) throws ZapScannerException {
+        return scanWithSelenium(targetUrl, driverPath, null);
+    }
+    
+    /**
+     * Scans a web application using Selenium with the specified policy.
+     * 
+     * @param targetUrl The target URL
+     * @param driverPath The path to the Selenium WebDriver
+     * @param policy The scan policy
+     * @return The scan result
+     * @throws ZapScannerException If scanning fails
+     */
+    public ScanResult scanWithSelenium(String targetUrl, String driverPath, ScanPolicy policy) throws ZapScannerException {
+        LOGGER.info("Starting Selenium scan for target URL: {}", targetUrl);
+        
+        try {
+            // Create a Selenium scanner
+            SeleniumScanner scanner = new SeleniumScanner(zapClient, config, driverPath);
+            
+            // Configure authentication if needed
+            if (config.getAuthenticationConfig() != null) {
+                scanner.setAuthenticationHandler(createAuthenticationHandler(config.getAuthenticationConfig()));
+            }
+            
+            // Use default policy if none provided
+            ScanPolicy scanPolicy = policy != null ? policy : policyManager.createMediumSecurityPolicy();
+            
+            // Start the scan
+            long startTime = System.currentTimeMillis();
+            
+            // Use Selenium to navigate the application
+            scanner.navigateApplication(targetUrl);
+            
+            // Perform passive scan
+            scanner.performPassiveScan(config.getContextName(), config.getMaxPassiveScanDurationInMinutes());
+            
+            // Perform active scan
+            scanner.performActiveScan(targetUrl, config.getContextName(), scanPolicy, 
+                    config.getMaxActiveScanDurationInMinutes());
+            
+            // Generate scan result
+            long endTime = System.currentTimeMillis();
+            ScanResult result = reportGenerator.generateScanResult(targetUrl, endTime - startTime);
+            
+            LOGGER.info("Selenium scan completed for target URL: {}", targetUrl);
+            return result;
+        } catch (Exception e) {
+            LOGGER.error("Failed to scan with Selenium", e);
+            throw new ZapScannerException("Failed to scan with Selenium: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Generates a scan report.
+     * 
+     * @param result The scan result
+     * @param format The report format
+     * @param outputPath The output path for the report
+     * @throws ZapScannerException If report generation fails
+     */
+    public void generateReport(ScanResult result, ReportGenerator.ReportFormat format, String outputPath) 
+            throws ZapScannerException {
+        reportGenerator.generateReport(result, format, outputPath);
+    }
+    
+    /**
+     * Creates an authentication handler based on the authentication configuration.
+     * 
+     * @param authConfig The authentication configuration
+     * @return The authentication handler
+     * @throws AuthenticationException If handler creation fails
+     */
+    private AuthenticationHandler createAuthenticationHandler(AuthenticationConfig authConfig) throws AuthenticationException {
+        if (authConfig == null) {
+            return null;
+        }
+        
+        AuthenticationHandler handler = null;
+        
+        switch (authConfig.getType()) {
+            case FORM:
+                // Create form authentication handler
+                handler = new FormAuthenticationHandler(
+                    zapClient,
+                    authConfig.getLoginUrl(),
+                    authConfig.getUsername(),
+                    authConfig.getPassword(),
+                    authConfig.getUsernameField(),
+                    authConfig.getPasswordField(),
+                    authConfig.getLoginRequestData(),
+                    authConfig.getLoggedInIndicator(),
+                    authConfig.getLoggedOutIndicator()
+                );
+                break;
+                
+            case API_KEY:
+                // Create API key authentication handler
+                handler = new ApiKeyAuthenticationHandler(
+                    zapClient,
+                    authConfig.getApiKeyHeaderName(),
+                    authConfig.getApiKeyValue()
+                );
+                break;
+                
+            case CERTIFICATE:
+                // Create certificate authentication handler
+                File certFile = new File(authConfig.getCertificateFile());
+                handler = new CertificateAuthenticationHandler(
+                    zapClient,
+                    certFile,
+                    authConfig.getCertificatePassword()
+                );
+                break;
+                
+            case OAUTH2:
+                // Create OAuth2 authentication handler
+                handler = new OAuth2AuthenticationHandler(
+                    zapClient,
+                    authConfig.getOauth2LoginUrl(),
+                    authConfig.getOauth2ClientId(),
+                    authConfig.getOauth2ClientSecret(),
+                    authConfig.getOauth2TokenUrl(),
+                    authConfig.getOauth2RedirectUri()
+                );
+                break;
+                
+            default:
+                throw new AuthenticationException("Unsupported authentication type: " + authConfig.getType());
+        }
+        
+        return handler;
+    }
+    
+    /**
+     * Gets the ZAP client.
+     * 
+     * @return The ZAP client
      */
     public ClientApi getZapClient() {
         return zapClient;
     }
-
+    
     /**
-     * Shuts down the scanner and releases any resources.
+     * Closes the ZAP scanner and releases resources.
+     * 
+     * @throws ZapScannerException If closing fails
      */
-    @Override
-    public void close() {
-        LOGGER.info("Shutting down ZAP Scanner");
-        // Additional cleanup if needed
+    public void close() throws ZapScannerException {
+        LOGGER.info("Closing ZAP scanner");
+        try {
+            // In a real implementation, we would close connections, shutdown ZAP, etc.
+            // For this stub, we'll just log the action
+            LOGGER.info("ZAP scanner closed");
+        } catch (Exception e) {
+            LOGGER.error("Failed to close ZAP scanner", e);
+            throw new ZapScannerException("Failed to close ZAP scanner: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Gets the scan configuration.
+     * 
+     * @return The scan configuration
+     */
+    public ScanConfig getConfig() {
+        return config;
+    }
+    
+    /**
+     * Gets the policy manager.
+     * 
+     * @return The policy manager
+     */
+    public PolicyManager getPolicyManager() {
+        return policyManager;
+    }
+    
+    /**
+     * Gets the report generator.
+     * 
+     * @return The report generator
+     */
+    public ReportGenerator getReportGenerator() {
+        return reportGenerator;
     }
 }

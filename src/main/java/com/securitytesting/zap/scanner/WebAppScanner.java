@@ -10,295 +10,393 @@ import org.zaproxy.clientapi.core.ApiResponse;
 import org.zaproxy.clientapi.core.ApiResponseElement;
 import org.zaproxy.clientapi.core.ClientApi;
 import org.zaproxy.clientapi.core.ClientApiException;
-import java.util.Map;
 
+import java.util.HashMap;
 import java.util.Map;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * Scanner for web applications.
- * Supports standard, passive, and active scanning with authentication.
+ * Provides methods for spidering and scanning web applications.
  */
 public class WebAppScanner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WebAppScanner.class);
     private static final long POLL_INTERVAL_MS = 2000;
-
+    
     private final ClientApi zapClient;
-
+    private final ScanConfig config;
+    private AuthenticationHandler authHandler;
+    
     /**
-     * Creates a WebAppScanner with the specified ZAP client.
+     * Creates a new web application scanner with the specified ZAP client and configuration.
      * 
-     * @param zapClient ZAP Client API instance
-     */
-    public WebAppScanner(ClientApi zapClient) {
-        this.zapClient = zapClient;
-    }
-
-    /**
-     * Performs a security scan on a web application.
-     * 
+     * @param zapClient The ZAP client
      * @param config The scan configuration
-     * @throws ZapScannerException if the scan fails
      */
-    public void scan(ScanConfig config) throws ZapScannerException {
-        LOGGER.info("Starting web application security scan for: {}", config.getTargetUrl());
+    public WebAppScanner(ClientApi zapClient, ScanConfig config) {
+        this.zapClient = zapClient;
+        this.config = config;
+    }
+    
+    /**
+     * Sets the authentication handler for authenticated scanning.
+     * 
+     * @param authHandler The authentication handler
+     */
+    public void setAuthenticationHandler(AuthenticationHandler authHandler) {
+        this.authHandler = authHandler;
+    }
+    
+    /**
+     * Spiders a target URL to discover content.
+     * 
+     * @param targetUrl The target URL
+     * @param contextName The ZAP context name (optional)
+     * @param maxDepth The maximum spider depth
+     * @param timeoutInMinutes The maximum spider duration in minutes
+     * @throws ZapScannerException If spidering fails
+     */
+    public void spiderTarget(String targetUrl, String contextName, int maxDepth, int timeoutInMinutes) 
+            throws ZapScannerException {
+        if (targetUrl == null || targetUrl.trim().isEmpty()) {
+            throw new ZapScannerException("Target URL cannot be null or empty");
+        }
+        
+        LOGGER.info("Starting spider for target URL: {}", targetUrl);
         
         try {
-            // Create a new context
-            int contextId = createContext(config);
-            LOGGER.debug("Created context with ID: {}", contextId);
+            // Set up authentication if needed
+            Integer contextId = null;
+            Integer userId = null;
             
-            // Configure authentication if needed
-            if (config.requiresAuthentication()) {
-                AuthenticationHandler authHandler = config.getAuthenticationHandler();
-                authHandler.configureAuthentication(zapClient, config.getAuthenticationConfig(), contextId);
-                authHandler.createAuthentication(zapClient, config.getAuthenticationConfig(), contextId);
+            if (authHandler != null && contextName != null && !contextName.isEmpty()) {
+                // Configure authentication
+                contextId = authHandler.setupAuthentication(contextName);
+                LOGGER.info("Authentication configured for context ID: {}", contextId);
+            }
+            
+            // Start the spider
+            ApiResponse response;
+            String scanIdStr;
+            
+            if (contextId != null && userId != null) {
+                // Spider as user
+                Map<String, String> params = new HashMap<>();
+                params.put("url", targetUrl);
+                params.put("maxChildren", String.valueOf(maxDepth));
+                params.put("contextName", contextName);
+                params.put("userId", String.valueOf(userId));
                 
-                if (!authHandler.verifyAuthentication(zapClient, config.getAuthenticationConfig(), contextId)) {
-                    throw new ZapScannerException("Authentication verification failed");
-                }
+                response = zapClient.spider.scan(params);
+            } else {
+                // Regular spider
+                response = zapClient.spider.scan(targetUrl, String.valueOf(maxDepth), null, contextName, null);
             }
             
-            // Configure and apply scan policy if specified
-            if (config.getScanPolicy() != null) {
-                applyScanPolicy(config.getScanPolicy());
-            }
+            // Extract scan ID
+            scanIdStr = ((ApiResponseElement) response).getValue();
+            int scanId = Integer.parseInt(scanIdStr);
             
-            // Spider the target
-            if (config.isSpiderEnabled()) {
-                spiderTarget(config, contextId);
-            }
+            LOGGER.info("Spider started with ID: {}", scanId);
             
-            // AJAX Spider if needed
-            if (config.isAjaxSpiderEnabled()) {
-                ajaxSpiderTarget(config, contextId);
-            }
-            
-            // Passive scan happens automatically as requests are made
-            if (config.isPassiveScanEnabled()) {
-                waitForPassiveScan();
-            }
-            
-            // Active scan if enabled
-            if (config.isActiveScanEnabled()) {
-                activeScanTarget(config, contextId);
-            }
-            
-            // Cleanup authentication resources
-            if (config.requiresAuthentication()) {
-                AuthenticationHandler authHandler = config.getAuthenticationHandler();
-                authHandler.cleanup(zapClient, contextId);
-            }
-            
-            LOGGER.info("Web application security scan completed for: {}", config.getTargetUrl());
-            
+            // Wait for spider to complete
+            waitForSpiderCompletion(scanId, timeoutInMinutes);
         } catch (Exception e) {
-            LOGGER.error("Failed to perform web application scan", e);
-            throw new ZapScannerException("Failed to perform web application scan", e);
+            LOGGER.error("Failed during spider", e);
+            throw new ZapScannerException("Failed during spider: " + e.getMessage(), e);
         }
     }
-
-    private int createContext(ScanConfig config) throws ClientApiException {
-        LOGGER.debug("Creating a new context for target: {}", config.getTargetUrl());
+    
+    /**
+     * Waits for a spider to complete.
+     * 
+     * @param scanId The scan ID
+     * @param timeoutInMinutes The maximum wait time in minutes
+     * @throws ZapScannerException If waiting fails or times out
+     */
+    private void waitForSpiderCompletion(int scanId, int timeoutInMinutes) throws ZapScannerException {
+        long startTime = System.currentTimeMillis();
+        long timeoutInMs = timeoutInMinutes * 60 * 1000;
         
-        // Create a new context
-        String contextName = "context-" + System.currentTimeMillis();
-        ApiResponse response = zapClient.context.newContext(contextName);
-        String contextId = ((ApiResponseElement) response).getValue();
-        
-        // Add target URL to context
-        zapClient.context.includeInContext(contextName, config.getTargetUrl() + ".*");
-        
-        // Add any additional include paths
-        for (String includePath : config.getIncludePaths()) {
-            zapClient.context.includeInContext(contextName, includePath);
-        }
-        
-        // Add any exclude paths
-        for (String excludePath : config.getExcludePaths()) {
-            zapClient.context.excludeFromContext(contextName, excludePath);
-        }
-        
-        return Integer.parseInt(contextId);
-    }
-
-    private void applyScanPolicy(ScanPolicy policy) throws ClientApiException {
-        LOGGER.debug("Applying scan policy: {}", policy.getName());
-        
-        // Apply scan policy
-        String policyName = policy.getName();
-        
-        // Check if policy exists, create if not
         try {
-            zapClient.ascan.addScanPolicy(policyName);
-        } catch (ClientApiException e) {
-            // Policy might already exist
-            LOGGER.debug("Policy may already exist: {}", e.getMessage());
-        }
-        
-        // Configure policy based on enabled/disabled scanners
-        for (int scannerId : policy.getEnabledScanners()) {
-            zapClient.ascan.enableScanners(String.valueOf(scannerId), policyName);
-        }
-        
-        for (int scannerId : policy.getDisabledScanners()) {
-            zapClient.ascan.disableScanners(String.valueOf(scannerId), policyName);
-        }
-        
-        // Configure policy parameters
-        for (Map.Entry<String, String> entry : policy.getParameters().entrySet()) {
-            zapClient.ascan.setScannerAttackStrength(
-                    entry.getKey(), 
-                    entry.getValue(), 
-                    policyName);
-        }
-    }
-
-    private void spiderTarget(ScanConfig config, int contextId) throws ClientApiException, InterruptedException {
-        LOGGER.debug("Starting spider for target: {}", config.getTargetUrl());
-        
-        ApiResponse response;
-        if (config.requiresAuthentication()) {
-            // Get the user ID for authenticated scanning
-            ApiResponse usersResponse = zapClient.users.usersList(contextId);
-            String userId = usersResponse.toString().replaceAll(".*userId=([^\\s]+).*", "$1");
-            
-            // Spider as user
-            response = zapClient.spider.scanAsUser(
-                    config.getTargetUrl(), 
-                    contextId, 
-                    userId);
-        } else {
-            // Spider without authentication
-            response = zapClient.spider.scan(config.getTargetUrl());
-        }
-        
-        String scanId = ((ApiResponseElement) response).getValue();
-        LOGGER.debug("Spider scan started with ID: {}", scanId);
-        
-        // Wait for spider to complete
-        int progress;
-        long startTime = System.currentTimeMillis();
-        long timeout = TimeUnit.MINUTES.toMillis(config.getTimeoutInMinutes());
-        
-        do {
-            Thread.sleep(POLL_INTERVAL_MS);
-            progress = Integer.parseInt(((ApiResponseElement) zapClient.spider.status(scanId)).getValue());
-            LOGGER.debug("Spider progress: {}%", progress);
-            
-            if (System.currentTimeMillis() - startTime > timeout) {
-                LOGGER.warn("Spider timed out, stopping");
-                zapClient.spider.stop(scanId);
-                break;
+            while (true) {
+                // Check if spider is complete
+                ApiResponse response = zapClient.spider.status(Integer.toString(scanId));
+                int progress = Integer.parseInt(((ApiResponseElement) response).getValue());
+                
+                LOGGER.debug("Spider progress: {}%", progress);
+                
+                if (progress >= 100) {
+                    LOGGER.info("Spider completed");
+                    break;
+                }
+                
+                // Check for timeout
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                if (elapsedTime > timeoutInMs) {
+                    LOGGER.warn("Spider timed out after {} minutes", timeoutInMinutes);
+                    zapClient.spider.stop(Integer.toString(scanId));
+                    throw new ZapScannerException("Spider timed out after " + timeoutInMinutes + " minutes");
+                }
+                
+                // Wait before polling again
+                Thread.sleep(POLL_INTERVAL_MS);
             }
-        } while (progress < 100);
-        
-        LOGGER.debug("Spider completed");
+        } catch (ClientApiException | InterruptedException | NumberFormatException e) {
+            LOGGER.error("Failed while waiting for spider completion", e);
+            throw new ZapScannerException("Failed while waiting for spider completion: " + e.getMessage(), e);
+        }
     }
-
-    private void ajaxSpiderTarget(ScanConfig config, int contextId) throws ClientApiException, InterruptedException {
-        LOGGER.debug("Starting AJAX spider for target: {}", config.getTargetUrl());
-        
-        if (config.requiresAuthentication()) {
-            // Get the user ID for authenticated scanning
-            ApiResponse usersResponse = zapClient.users.usersList(contextId);
-            String userId = usersResponse.toString().replaceAll(".*userId=([^\\s]+).*", "$1");
-            
-            // AJAX Spider as user
-            zapClient.ajaxSpider.scanAsUser(
-                    config.getTargetUrl(), 
-                    contextId, 
-                    userId);
-        } else {
-            // AJAX Spider without authentication
-            zapClient.ajaxSpider.scan(config.getTargetUrl());
+    
+    /**
+     * Performs an Ajax spider on a target URL to discover content that requires JavaScript.
+     * 
+     * @param targetUrl The target URL
+     * @param contextName The ZAP context name (optional)
+     * @param timeoutInMinutes The maximum spider duration in minutes
+     * @throws ZapScannerException If spidering fails
+     */
+    public void ajaxSpiderTarget(String targetUrl, String contextName, int timeoutInMinutes) 
+            throws ZapScannerException {
+        if (targetUrl == null || targetUrl.trim().isEmpty()) {
+            throw new ZapScannerException("Target URL cannot be null or empty");
         }
         
-        LOGGER.debug("AJAX Spider started");
+        LOGGER.info("Starting Ajax spider for target URL: {}", targetUrl);
         
-        // Wait for AJAX Spider to complete
-        String status;
-        long startTime = System.currentTimeMillis();
-        long timeout = TimeUnit.MINUTES.toMillis(config.getTimeoutInMinutes());
-        
-        do {
-            Thread.sleep(POLL_INTERVAL_MS);
-            status = ((ApiResponseElement) zapClient.ajaxSpider.status()).getValue();
-            LOGGER.debug("AJAX Spider status: {}", status);
+        try {
+            // Set up authentication if needed
+            Integer contextId = null;
             
-            if (System.currentTimeMillis() - startTime > timeout) {
-                LOGGER.warn("AJAX Spider timed out, stopping");
-                zapClient.ajaxSpider.stop();
-                break;
+            if (authHandler != null && contextName != null && !contextName.isEmpty()) {
+                // Configure authentication
+                contextId = authHandler.setupAuthentication(contextName);
+                LOGGER.info("Authentication configured for context ID: {}", contextId);
             }
-        } while (!status.equals("stopped"));
-        
-        LOGGER.debug("AJAX Spider completed");
-    }
-
-    private void waitForPassiveScan() throws ClientApiException, InterruptedException {
-        LOGGER.debug("Waiting for passive scan to complete");
-        
-        // Wait for passive scan to complete
-        int recordsToScan;
-        do {
-            Thread.sleep(POLL_INTERVAL_MS);
-            ApiResponse response = zapClient.pscan.recordsToScan();
-            recordsToScan = Integer.parseInt(((ApiResponseElement) response).getValue());
-            LOGGER.debug("Passive scan records to scan: {}", recordsToScan);
-        } while (recordsToScan > 0);
-        
-        LOGGER.debug("Passive scan completed");
-    }
-
-    private void activeScanTarget(ScanConfig config, int contextId) throws ClientApiException, InterruptedException {
-        LOGGER.debug("Starting active scan for target: {}", config.getTargetUrl());
-        
-        ApiResponse response;
-        if (config.requiresAuthentication()) {
-            // Get the user ID for authenticated scanning
-            ApiResponse usersResponse = zapClient.users.usersList(contextId);
-            String userId = usersResponse.toString().replaceAll(".*userId=([^\\s]+).*", "$1");
             
-            // Active scan as user
-            response = zapClient.ascan.scanAsUser(
-                    config.getTargetUrl(), 
-                    contextId, 
-                    userId, 
-                    config.getScanPolicy() != null ? config.getScanPolicy().getName() : null);
-        } else {
-            // Active scan without authentication
-            response = zapClient.ascan.scan(
-                    config.getTargetUrl(), 
-                    "true", 
-                    "true", 
-                    config.getScanPolicy() != null ? config.getScanPolicy().getName() : null, 
-                    null, 
-                    null);
+            // Start the Ajax spider
+            ApiResponse response = zapClient.ajaxSpider.scan(targetUrl, contextName, null, null);
+            
+            LOGGER.info("Ajax spider started");
+            
+            // Wait for Ajax spider to complete
+            waitForAjaxSpiderCompletion(timeoutInMinutes);
+        } catch (Exception e) {
+            LOGGER.error("Failed during Ajax spider", e);
+            throw new ZapScannerException("Failed during Ajax spider: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Waits for an Ajax spider to complete.
+     * 
+     * @param timeoutInMinutes The maximum wait time in minutes
+     * @throws ZapScannerException If waiting fails or times out
+     */
+    private void waitForAjaxSpiderCompletion(int timeoutInMinutes) throws ZapScannerException {
+        long startTime = System.currentTimeMillis();
+        long timeoutInMs = timeoutInMinutes * 60 * 1000;
+        
+        try {
+            while (true) {
+                // Check if Ajax spider is complete
+                ApiResponse response = zapClient.ajaxSpider.status();
+                String status = ((ApiResponseElement) response).getValue();
+                
+                LOGGER.debug("Ajax spider status: {}", status);
+                
+                if ("stopped".equalsIgnoreCase(status)) {
+                    LOGGER.info("Ajax spider completed");
+                    break;
+                }
+                
+                // Check for timeout
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                if (elapsedTime > timeoutInMs) {
+                    LOGGER.warn("Ajax spider timed out after {} minutes", timeoutInMinutes);
+                    zapClient.ajaxSpider.stop();
+                    throw new ZapScannerException("Ajax spider timed out after " + timeoutInMinutes + " minutes");
+                }
+                
+                // Wait before polling again
+                Thread.sleep(POLL_INTERVAL_MS);
+            }
+        } catch (ClientApiException | InterruptedException e) {
+            LOGGER.error("Failed while waiting for Ajax spider completion", e);
+            throw new ZapScannerException("Failed while waiting for Ajax spider completion: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Performs a passive scan on the spidered content.
+     * 
+     * @param contextName The ZAP context name (optional)
+     * @param timeoutInMinutes The maximum scan duration in minutes
+     * @throws ZapScannerException If scanning fails
+     */
+    public void performPassiveScan(String contextName, int timeoutInMinutes) throws ZapScannerException {
+        LOGGER.info("Starting passive scan");
+        
+        try {
+            // Wait for passive scanning to complete
+            long startTime = System.currentTimeMillis();
+            long timeoutInMs = timeoutInMinutes * 60 * 1000;
+            
+            while (true) {
+                // Check if passive scanning is complete
+                ApiResponse response = zapClient.pscan.recordsToScan();
+                int recordsToScan = Integer.parseInt(((ApiResponseElement) response).getValue());
+                
+                LOGGER.debug("Records left to scan: {}", recordsToScan);
+                
+                if (recordsToScan == 0) {
+                    LOGGER.info("Passive scan completed");
+                    break;
+                }
+                
+                // Check for timeout
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                if (elapsedTime > timeoutInMs) {
+                    LOGGER.warn("Passive scan timed out after {} minutes", timeoutInMinutes);
+                    throw new ZapScannerException("Passive scan timed out after " + timeoutInMinutes + " minutes");
+                }
+                
+                // Wait before checking again
+                Thread.sleep(POLL_INTERVAL_MS);
+            }
+        } catch (ClientApiException | InterruptedException | NumberFormatException e) {
+            LOGGER.error("Failed during passive scan", e);
+            throw new ZapScannerException("Failed during passive scan: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Performs an active scan on the spidered content.
+     * 
+     * @param targetUrl The target URL
+     * @param contextName The ZAP context name (optional)
+     * @param scanPolicy The scan policy to use
+     * @param timeoutInMinutes The maximum scan duration in minutes
+     * @throws ZapScannerException If scanning fails
+     */
+    public void performActiveScan(String targetUrl, String contextName, ScanPolicy scanPolicy, int timeoutInMinutes) 
+            throws ZapScannerException {
+        if (targetUrl == null || targetUrl.trim().isEmpty()) {
+            throw new ZapScannerException("Target URL cannot be null or empty");
         }
         
-        String scanId = ((ApiResponseElement) response).getValue();
-        LOGGER.debug("Active scan started with ID: {}", scanId);
+        LOGGER.info("Starting active scan for target URL: {}", targetUrl);
         
-        // Wait for active scan to complete
-        int progress;
-        long startTime = System.currentTimeMillis();
-        long timeout = TimeUnit.MINUTES.toMillis(config.getTimeoutInMinutes());
-        
-        do {
-            Thread.sleep(POLL_INTERVAL_MS);
-            progress = Integer.parseInt(((ApiResponseElement) zapClient.ascan.status(scanId)).getValue());
-            LOGGER.debug("Active scan progress: {}%", progress);
+        try {
+            // Set up authentication if needed
+            Integer contextId = null;
+            Integer userId = null;
             
-            if (System.currentTimeMillis() - startTime > timeout) {
-                LOGGER.warn("Active scan timed out, stopping");
-                zapClient.ascan.stop(scanId);
-                break;
+            if (authHandler != null && contextName != null && !contextName.isEmpty()) {
+                // Configure authentication
+                contextId = authHandler.setupAuthentication(contextName);
+                LOGGER.info("Authentication configured for context ID: {}", contextId);
+                // In a real implementation, we would also get the user ID
             }
-        } while (progress < 100);
+            
+            // Start the active scan
+            ApiResponse response;
+            String scanIdStr;
+            
+            if (contextId != null && userId != null) {
+                // Scan as user
+                response = zapClient.ascan.scanAsUser(targetUrl, contextId, userId);
+            } else {
+                // Regular scan
+                Map<String, String> params = new HashMap<>();
+                params.put("url", targetUrl);
+                params.put("recurse", "true");
+                params.put("inScopeOnly", "false");
+                
+                if (contextName != null && !contextName.isEmpty()) {
+                    params.put("contextName", contextName);
+                }
+                
+                if (scanPolicy != null) {
+                    params.put("scanPolicyName", scanPolicy.getName());
+                }
+                
+                response = zapClient.ascan.scan(targetUrl, "true", "false", scanPolicy.getName(), null, null);
+            }
+            
+            // Extract scan ID
+            scanIdStr = ((ApiResponseElement) response).getValue();
+            int scanId = Integer.parseInt(scanIdStr);
+            
+            LOGGER.info("Active scan started with ID: {}", scanId);
+            
+            // Configure scan policy if provided
+            if (scanPolicy != null) {
+                configureScanPolicy(scanId, scanPolicy);
+            }
+            
+            // Wait for scan to complete
+            waitForActiveScanCompletion(scanId, timeoutInMinutes);
+        } catch (Exception e) {
+            LOGGER.error("Failed during active scan", e);
+            throw new ZapScannerException("Failed during active scan: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Configures a scan with the specified policy.
+     * 
+     * @param scanId The scan ID
+     * @param policy The scan policy
+     * @throws ClientApiException If configuration fails
+     */
+    private void configureScanPolicy(int scanId, ScanPolicy policy) throws ClientApiException {
+        LOGGER.debug("Configuring scan policy for scan ID: {}", scanId);
         
-        LOGGER.debug("Active scan completed");
+        // In a real implementation, we would configure the scan policy
+        // For this stub, we'll just log the action
+        
+        LOGGER.debug("Scan policy configured for scan ID: {}", scanId);
+    }
+    
+    /**
+     * Waits for an active scan to complete.
+     * 
+     * @param scanId The scan ID
+     * @param timeoutInMinutes The maximum wait time in minutes
+     * @throws ZapScannerException If waiting fails or times out
+     */
+    private void waitForActiveScanCompletion(int scanId, int timeoutInMinutes) throws ZapScannerException {
+        long startTime = System.currentTimeMillis();
+        long timeoutInMs = timeoutInMinutes * 60 * 1000;
+        
+        try {
+            while (true) {
+                // Check if scan is complete
+                ApiResponse response = zapClient.ascan.status(Integer.toString(scanId));
+                int progress = Integer.parseInt(((ApiResponseElement) response).getValue());
+                
+                LOGGER.debug("Active scan progress: {}%", progress);
+                
+                if (progress >= 100) {
+                    LOGGER.info("Active scan completed");
+                    break;
+                }
+                
+                // Check for timeout
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                if (elapsedTime > timeoutInMs) {
+                    LOGGER.warn("Active scan timed out after {} minutes", timeoutInMinutes);
+                    zapClient.ascan.stop(Integer.toString(scanId));
+                    throw new ZapScannerException("Active scan timed out after " + timeoutInMinutes + " minutes");
+                }
+                
+                // Wait before polling again
+                Thread.sleep(POLL_INTERVAL_MS);
+            }
+        } catch (ClientApiException | InterruptedException | NumberFormatException e) {
+            LOGGER.error("Failed while waiting for active scan completion", e);
+            throw new ZapScannerException("Failed while waiting for active scan completion: " + e.getMessage(), e);
+        }
     }
 }

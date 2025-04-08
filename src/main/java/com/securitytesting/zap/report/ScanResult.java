@@ -1,53 +1,211 @@
 package com.securitytesting.zap.report;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.Date;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
- * Contains the complete results of a security scan.
+ * Represents the results of a security scan.
+ * Contains information about alerts grouped by severity.
  */
 public class ScanResult {
-    
-    private final String scanId;
-    private final String targetUrl;
-    private final LocalDateTime scanStartTime;
-    private final LocalDateTime scanEndTime;
-    private final long scanDurationMs;
-    private final List<Alert> alerts;
-    private final Map<String, String> scanMetadata;
-    private final ScanSummary summary;
-    
-    private ScanResult(Builder builder) {
-        this.scanId = builder.scanId;
-        this.targetUrl = builder.targetUrl;
-        this.scanStartTime = builder.scanStartTime;
-        this.scanEndTime = builder.scanEndTime;
-        this.scanDurationMs = builder.scanDurationMs;
-        this.alerts = new ArrayList<>(builder.alerts);
-        this.scanMetadata = new HashMap<>(builder.scanMetadata);
-        
-        // Generate summary statistics
-        this.summary = new ScanSummary(this.alerts);
-    }
+    private int highAlerts;
+    private int mediumAlerts;
+    private int lowAlerts;
+    private int infoAlerts;
+    private int totalAlerts;
+    private Date scanDate;
+    private List<Alert> alerts;
+    private String targetUrl;
+    private long scanDurationMs;
     
     /**
-     * Gets the unique scan ID.
-     * 
-     * @return The scan ID
+     * Creates a new scan result.
      */
-    public String getScanId() {
-        return scanId;
+    public ScanResult() {
+        this.highAlerts = 0;
+        this.mediumAlerts = 0;
+        this.lowAlerts = 0;
+        this.infoAlerts = 0;
+        this.totalAlerts = 0;
+        this.scanDate = new Date();
+        this.alerts = new ArrayList<>();
+        this.scanDurationMs = 0;
     }
     
     /**
-     * Gets the target URL that was scanned.
+     * Creates a new scan result using the builder pattern.
+     * 
+     * @param builder The builder
+     */
+    public ScanResult(Builder builder) {
+        this.highAlerts = builder.highAlerts;
+        this.mediumAlerts = builder.mediumAlerts;
+        this.lowAlerts = builder.lowAlerts;
+        this.infoAlerts = builder.infoAlerts;
+        this.totalAlerts = builder.totalAlerts;
+        this.scanDate = builder.scanDate;
+        this.alerts = builder.alerts;
+        this.targetUrl = builder.targetUrl;
+        this.scanDurationMs = builder.scanDurationMs;
+    }
+    
+    /**
+     * Gets the number of high severity alerts.
+     * 
+     * @return The number of high severity alerts
+     */
+    public int getHighAlerts() {
+        return highAlerts;
+    }
+    
+    /**
+     * Sets the number of high severity alerts.
+     * 
+     * @param highAlerts The number of high severity alerts
+     */
+    public void setHighAlerts(int highAlerts) {
+        this.highAlerts = highAlerts;
+    }
+    
+    /**
+     * Increments the number of high severity alerts.
+     */
+    public void incrementHighAlerts() {
+        this.highAlerts++;
+    }
+    
+    /**
+     * Gets the number of medium severity alerts.
+     * 
+     * @return The number of medium severity alerts
+     */
+    public int getMediumAlerts() {
+        return mediumAlerts;
+    }
+    
+    /**
+     * Sets the number of medium severity alerts.
+     * 
+     * @param mediumAlerts The number of medium severity alerts
+     */
+    public void setMediumAlerts(int mediumAlerts) {
+        this.mediumAlerts = mediumAlerts;
+    }
+    
+    /**
+     * Increments the number of medium severity alerts.
+     */
+    public void incrementMediumAlerts() {
+        this.mediumAlerts++;
+    }
+    
+    /**
+     * Gets the number of low severity alerts.
+     * 
+     * @return The number of low severity alerts
+     */
+    public int getLowAlerts() {
+        return lowAlerts;
+    }
+    
+    /**
+     * Sets the number of low severity alerts.
+     * 
+     * @param lowAlerts The number of low severity alerts
+     */
+    public void setLowAlerts(int lowAlerts) {
+        this.lowAlerts = lowAlerts;
+    }
+    
+    /**
+     * Increments the number of low severity alerts.
+     */
+    public void incrementLowAlerts() {
+        this.lowAlerts++;
+    }
+    
+    /**
+     * Gets the number of informational alerts.
+     * 
+     * @return The number of informational alerts
+     */
+    public int getInfoAlerts() {
+        return infoAlerts;
+    }
+    
+    /**
+     * Sets the number of informational alerts.
+     * 
+     * @param infoAlerts The number of informational alerts
+     */
+    public void setInfoAlerts(int infoAlerts) {
+        this.infoAlerts = infoAlerts;
+    }
+    
+    /**
+     * Increments the number of informational alerts.
+     */
+    public void incrementInfoAlerts() {
+        this.infoAlerts++;
+    }
+    
+    /**
+     * Gets the total number of alerts.
+     * 
+     * @return The total number of alerts
+     */
+    public int getTotalAlerts() {
+        return totalAlerts;
+    }
+    
+    /**
+     * Sets the total number of alerts.
+     * 
+     * @param totalAlerts The total number of alerts
+     */
+    public void setTotalAlerts(int totalAlerts) {
+        this.totalAlerts = totalAlerts;
+    }
+    
+    /**
+     * Gets the scan date.
+     * 
+     * @return The scan date
+     */
+    public Date getScanDate() {
+        return new Date(scanDate.getTime());
+    }
+    
+    /**
+     * Sets the scan date.
+     * 
+     * @param scanDate The scan date
+     */
+    public void setScanDate(Date scanDate) {
+        this.scanDate = new Date(scanDate.getTime());
+    }
+    
+    /**
+     * Gets the list of alerts.
+     * 
+     * @return The list of alerts
+     */
+    public List<Alert> getAlerts() {
+        return new ArrayList<>(alerts);
+    }
+    
+    /**
+     * Sets the list of alerts.
+     * 
+     * @param alerts The list of alerts
+     */
+    public void setAlerts(List<Alert> alerts) {
+        this.alerts = new ArrayList<>(alerts);
+    }
+    
+    /**
+     * Gets the target URL.
      * 
      * @return The target URL
      */
@@ -56,223 +214,183 @@ public class ScanResult {
     }
     
     /**
-     * Gets the scan start time.
+     * Sets the target URL.
      * 
-     * @return The scan start time
+     * @param targetUrl The target URL
      */
-    public LocalDateTime getScanStartTime() {
-        return scanStartTime;
-    }
-    
-    /**
-     * Gets the scan end time.
-     * 
-     * @return The scan end time
-     */
-    public LocalDateTime getScanEndTime() {
-        return scanEndTime;
+    public void setTargetUrl(String targetUrl) {
+        this.targetUrl = targetUrl;
     }
     
     /**
      * Gets the scan duration in milliseconds.
      * 
-     * @return The scan duration
+     * @return The scan duration in milliseconds
      */
     public long getScanDurationMs() {
         return scanDurationMs;
     }
     
     /**
-     * Gets all alerts found during the scan.
+     * Sets the scan duration in milliseconds.
      * 
-     * @return List of alerts
+     * @param scanDurationMs The scan duration in milliseconds
      */
-    public List<Alert> getAlerts() {
-        return Collections.unmodifiableList(alerts);
+    public void setScanDurationMs(long scanDurationMs) {
+        this.scanDurationMs = scanDurationMs;
     }
     
     /**
-     * Gets alerts filtered by a minimum severity level.
+     * Adds an alert to the scan result.
      * 
-     * @param minSeverity The minimum severity level to include
-     * @return Filtered list of alerts
+     * @param alert The alert to add
      */
-    public List<Alert> getAlerts(Severity minSeverity) {
-        return alerts.stream()
-                .filter(alert -> alert.getSeverity().getLevel() >= minSeverity.getLevel())
-                .collect(Collectors.toList());
-    }
-    
-    /**
-     * Gets scan metadata.
-     * 
-     * @return Map of metadata key-value pairs
-     */
-    public Map<String, String> getScanMetadata() {
-        return Collections.unmodifiableMap(scanMetadata);
-    }
-    
-    /**
-     * Gets a summary of the scan results.
-     * 
-     * @return The scan summary
-     */
-    public ScanSummary getSummary() {
-        return summary;
-    }
-    
-    /**
-     * Checks if the scan found any alerts with a severity at or above the specified level.
-     * 
-     * @param minSeverity The minimum severity level to check for
-     * @return true if alerts of the specified severity were found, false otherwise
-     */
-    public boolean hasAlerts(Severity minSeverity) {
-        return alerts.stream()
-                .anyMatch(alert -> alert.getSeverity().getLevel() >= minSeverity.getLevel());
-    }
-    
-    /**
-     * Checks if the scan is considered "passed" based on the specified threshold.
-     * A scan passes if it has no alerts at or above the threshold severity.
-     * 
-     * @param failureThreshold The severity threshold for failing the scan
-     * @return true if the scan passed, false if it failed
-     */
-    public boolean isPassed(Severity failureThreshold) {
-        return !hasAlerts(failureThreshold);
-    }
-    
-    /**
-     * Summary statistics for a scan.
-     */
-    public static class ScanSummary {
-        private final int totalAlerts;
-        private final int criticalAlerts;
-        private final int highAlerts;
-        private final int mediumAlerts;
-        private final int lowAlerts;
-        private final int infoAlerts;
-        private final Map<String, Integer> alertsByType;
-        
-        private ScanSummary(List<Alert> alerts) {
-            this.totalAlerts = alerts.size();
+    public void addAlert(Alert alert) {
+        if (alert != null) {
+            this.alerts.add(alert);
+            this.totalAlerts++;
             
-            // Count alerts by severity
-            this.criticalAlerts = countAlertsBySeverity(alerts, Severity.CRITICAL);
-            this.highAlerts = countAlertsBySeverity(alerts, Severity.HIGH);
-            this.mediumAlerts = countAlertsBySeverity(alerts, Severity.MEDIUM);
-            this.lowAlerts = countAlertsBySeverity(alerts, Severity.LOW);
-            this.infoAlerts = countAlertsBySeverity(alerts, Severity.INFORMATIONAL);
-            
-            // Count alerts by type/name
-            Map<String, Integer> typeMap = new HashMap<>();
-            for (Alert alert : alerts) {
-                String alertName = alert.getName();
-                typeMap.put(alertName, typeMap.getOrDefault(alertName, 0) + 1);
+            // Increment count for the appropriate severity
+            switch (alert.getSeverity()) {
+                case HIGH:
+                    incrementHighAlerts();
+                    break;
+                case MEDIUM:
+                    incrementMediumAlerts();
+                    break;
+                case LOW:
+                    incrementLowAlerts();
+                    break;
+                case INFORMATIONAL:
+                    incrementInfoAlerts();
+                    break;
             }
-            this.alertsByType = Collections.unmodifiableMap(typeMap);
-        }
-        
-        private int countAlertsBySeverity(List<Alert> alerts, Severity severity) {
-            return (int) alerts.stream()
-                    .filter(alert -> alert.getSeverity() == severity)
-                    .count();
-        }
-        
-        /**
-         * Gets the total number of alerts.
-         * 
-         * @return Total alert count
-         */
-        public int getTotalAlerts() {
-            return totalAlerts;
-        }
-        
-        /**
-         * Gets the number of critical severity alerts.
-         * 
-         * @return Critical alert count
-         */
-        public int getCriticalAlerts() {
-            return criticalAlerts;
-        }
-        
-        /**
-         * Gets the number of high severity alerts.
-         * 
-         * @return High alert count
-         */
-        public int getHighAlerts() {
-            return highAlerts;
-        }
-        
-        /**
-         * Gets the number of medium severity alerts.
-         * 
-         * @return Medium alert count
-         */
-        public int getMediumAlerts() {
-            return mediumAlerts;
-        }
-        
-        /**
-         * Gets the number of low severity alerts.
-         * 
-         * @return Low alert count
-         */
-        public int getLowAlerts() {
-            return lowAlerts;
-        }
-        
-        /**
-         * Gets the number of informational alerts.
-         * 
-         * @return Informational alert count
-         */
-        public int getInfoAlerts() {
-            return infoAlerts;
-        }
-        
-        /**
-         * Gets a map of alert types to counts.
-         * 
-         * @return Map with alert names as keys and counts as values
-         */
-        public Map<String, Integer> getAlertsByType() {
-            return alertsByType;
         }
     }
     
     /**
-     * Builder for creating ScanResult instances.
+     * Creates a summary of the scan result.
+     * 
+     * @return A summary of the scan result
+     */
+    public String getSummary() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Scan Result Summary:\n");
+        sb.append("- High Risk Alerts: ").append(highAlerts).append("\n");
+        sb.append("- Medium Risk Alerts: ").append(mediumAlerts).append("\n");
+        sb.append("- Low Risk Alerts: ").append(lowAlerts).append("\n");
+        sb.append("- Informational Alerts: ").append(infoAlerts).append("\n");
+        sb.append("- Total Alerts: ").append(totalAlerts).append("\n");
+        
+        if (scanDurationMs > 0) {
+            sb.append("- Scan Duration: ").append(scanDurationMs / 1000).append(" seconds\n");
+        }
+        
+        return sb.toString();
+    }
+    
+    /**
+     * Builder for ScanResult.
      */
     public static class Builder {
-        private String scanId = UUID.randomUUID().toString();
+        private int highAlerts;
+        private int mediumAlerts;
+        private int lowAlerts;
+        private int infoAlerts;
+        private int totalAlerts;
+        private Date scanDate;
+        private List<Alert> alerts;
         private String targetUrl;
-        private LocalDateTime scanStartTime = LocalDateTime.now();
-        private LocalDateTime scanEndTime = LocalDateTime.now();
-        private long scanDurationMs = 0;
-        private final List<Alert> alerts = new ArrayList<>();
-        private final Map<String, String> scanMetadata = new HashMap<>();
+        private long scanDurationMs;
         
         /**
-         * Creates a new builder with the specified target URL.
-         * 
-         * @param targetUrl The target URL that was scanned
+         * Creates a new builder.
          */
-        public Builder(String targetUrl) {
-            this.targetUrl = targetUrl;
+        public Builder() {
+            this.highAlerts = 0;
+            this.mediumAlerts = 0;
+            this.lowAlerts = 0;
+            this.infoAlerts = 0;
+            this.totalAlerts = 0;
+            this.scanDate = new Date();
+            this.alerts = new ArrayList<>();
+            this.scanDurationMs = 0;
         }
         
         /**
-         * Sets the scan ID.
+         * Sets the number of high severity alerts.
          * 
-         * @param scanId The scan ID
-         * @return This builder for method chaining
+         * @param highAlerts The number of high severity alerts
+         * @return This builder
          */
-        public Builder scanId(String scanId) {
-            this.scanId = scanId;
+        public Builder highAlerts(int highAlerts) {
+            this.highAlerts = highAlerts;
+            return this;
+        }
+        
+        /**
+         * Sets the number of medium severity alerts.
+         * 
+         * @param mediumAlerts The number of medium severity alerts
+         * @return This builder
+         */
+        public Builder mediumAlerts(int mediumAlerts) {
+            this.mediumAlerts = mediumAlerts;
+            return this;
+        }
+        
+        /**
+         * Sets the number of low severity alerts.
+         * 
+         * @param lowAlerts The number of low severity alerts
+         * @return This builder
+         */
+        public Builder lowAlerts(int lowAlerts) {
+            this.lowAlerts = lowAlerts;
+            return this;
+        }
+        
+        /**
+         * Sets the number of informational alerts.
+         * 
+         * @param infoAlerts The number of informational alerts
+         * @return This builder
+         */
+        public Builder infoAlerts(int infoAlerts) {
+            this.infoAlerts = infoAlerts;
+            return this;
+        }
+        
+        /**
+         * Sets the total number of alerts.
+         * 
+         * @param totalAlerts The total number of alerts
+         * @return This builder
+         */
+        public Builder totalAlerts(int totalAlerts) {
+            this.totalAlerts = totalAlerts;
+            return this;
+        }
+        
+        /**
+         * Sets the scan date.
+         * 
+         * @param scanDate The scan date
+         * @return This builder
+         */
+        public Builder scanDate(Date scanDate) {
+            this.scanDate = new Date(scanDate.getTime());
+            return this;
+        }
+        
+        /**
+         * Sets the list of alerts.
+         * 
+         * @param alerts The list of alerts
+         * @return This builder
+         */
+        public Builder alerts(List<Alert> alerts) {
+            this.alerts = new ArrayList<>(alerts);
             return this;
         }
         
@@ -280,7 +398,7 @@ public class ScanResult {
          * Sets the target URL.
          * 
          * @param targetUrl The target URL
-         * @return This builder for method chaining
+         * @return This builder
          */
         public Builder targetUrl(String targetUrl) {
             this.targetUrl = targetUrl;
@@ -288,38 +406,10 @@ public class ScanResult {
         }
         
         /**
-         * Sets the scan start time.
-         * 
-         * @param scanStartTime The scan start time
-         * @return This builder for method chaining
-         */
-        public Builder scanStartTime(LocalDateTime scanStartTime) {
-            this.scanStartTime = scanStartTime;
-            return this;
-        }
-        
-        /**
-         * Sets the scan end time and calculates duration.
-         * 
-         * @param scanEndTime The scan end time
-         * @return This builder for method chaining
-         */
-        public Builder scanEndTime(LocalDateTime scanEndTime) {
-            this.scanEndTime = scanEndTime;
-            
-            // Calculate duration in milliseconds
-            if (this.scanStartTime != null && scanEndTime != null) {
-                this.scanDurationMs = java.time.Duration.between(this.scanStartTime, scanEndTime).toMillis();
-            }
-            
-            return this;
-        }
-        
-        /**
-         * Sets the scan duration directly.
+         * Sets the scan duration in milliseconds.
          * 
          * @param scanDurationMs The scan duration in milliseconds
-         * @return This builder for method chaining
+         * @return This builder
          */
         public Builder scanDurationMs(long scanDurationMs) {
             this.scanDurationMs = scanDurationMs;
@@ -327,78 +417,48 @@ public class ScanResult {
         }
         
         /**
-         * Adds an alert to the scan results.
+         * Gets the current high alerts value.
          * 
-         * @param alert The alert to add
-         * @return This builder for method chaining
+         * @return The current high alerts value
          */
-        public Builder addAlert(Alert alert) {
-            if (alert != null) {
-                this.alerts.add(alert);
-            }
-            return this;
+        public int getHighAlerts() {
+            return highAlerts;
         }
         
         /**
-         * Adds multiple alerts to the scan results.
+         * Gets the current medium alerts value.
          * 
-         * @param alerts The alerts to add
-         * @return This builder for method chaining
+         * @return The current medium alerts value
          */
-        public Builder addAlerts(List<Alert> alerts) {
-            if (alerts != null) {
-                this.alerts.addAll(alerts);
-            }
-            return this;
+        public int getMediumAlerts() {
+            return mediumAlerts;
         }
         
         /**
-         * Adds a metadata entry.
+         * Gets the current low alerts value.
          * 
-         * @param key The metadata key
-         * @param value The metadata value
-         * @return This builder for method chaining
+         * @return The current low alerts value
          */
-        public Builder addMetadata(String key, String value) {
-            if (key != null && !key.isEmpty()) {
-                this.scanMetadata.put(key, value);
-            }
-            return this;
+        public int getLowAlerts() {
+            return lowAlerts;
+        }
+        
+        /**
+         * Gets the current info alerts value.
+         * 
+         * @return The current info alerts value
+         */
+        public int getInfoAlerts() {
+            return infoAlerts;
         }
         
         /**
          * Builds the scan result.
          * 
-         * @return A new ScanResult instance
+         * @return The scan result
          */
         public ScanResult build() {
             return new ScanResult(this);
         }
-    }
-    
-    /**
-     * Returns a formatted string representation of the scan date and time.
-     * 
-     * @return Formatted date and time
-     */
-    public String getFormattedScanTime() {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        return scanStartTime.format(formatter);
-    }
-    
-    /**
-     * Returns a formatted string representation of the scan duration.
-     * 
-     * @return Formatted duration
-     */
-    public String getFormattedDuration() {
-        long seconds = scanDurationMs / 1000;
-        long minutes = seconds / 60;
-        long hours = minutes / 60;
-        
-        seconds %= 60;
-        minutes %= 60;
-        
-        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 }

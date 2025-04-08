@@ -17,6 +17,9 @@ import org.zaproxy.clientapi.core.ClientApi;
 import org.zaproxy.clientapi.core.ApiResponse;
 import org.zaproxy.clientapi.core.ApiResponseElement;
 
+import java.io.File;
+import java.net.URL;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -37,7 +40,13 @@ public class ZapScannerTest {
         when(zapClient.core.version()).thenReturn(mockApiResponseElement);
         when(mockApiResponseElement.toString()).thenReturn("2.12.0");
         
-        zapScanner = new ZapScanner("localhost:8080", "api-key") {
+        ScanConfig config = new ScanConfig.Builder()
+            .zapHost("localhost")
+            .zapPort(8080)
+            .zapApiKey("api-key")
+            .build();
+            
+        zapScanner = new ZapScanner(config) {
             @Override
             public ClientApi getZapClient() {
                 return zapClient;
@@ -55,15 +64,15 @@ public class ZapScannerTest {
         mockAlerts();
         
         // Create scan configuration
-        ScanConfig config = new ScanConfig.Builder("https://example.com")
-                .spiderEnabled(true)
-                .activeScanEnabled(true)
-                .passiveScanEnabled(true)
-                .scanPolicy(PolicyManager.createOwaspTop10Policy())
+        ScanConfig config = new ScanConfig.Builder()
+                .zapHost("localhost")
+                .zapPort(8080)
+                .zapApiKey("api-key")
+                .contextName("test-context")
                 .build();
         
         // Perform scan
-        ScanResult result = zapScanner.scanWebApplication(config);
+        ScanResult result = zapScanner.scanWebApplication("https://example.com");
         
         // Verify result
         assertNotNull(result);
@@ -77,7 +86,7 @@ public class ZapScannerTest {
                 contains("example.com"), 
                 eq("true"), 
                 eq("true"), 
-                contains("OWASP-Top-10"), 
+                anyString(), 
                 isNull(), 
                 isNull());
     }
@@ -93,7 +102,7 @@ public class ZapScannerTest {
         mockUserCreation();
         
         // Create authentication config
-        AuthenticationConfig authConfig = new AuthenticationConfig.Builder(AuthenticationConfig.AuthType.FORM_BASED)
+        AuthenticationConfig authConfig = new AuthenticationConfig.Builder(AuthenticationConfig.AuthType.FORM)
                 .loginUrl("https://example.com/login")
                 .usernameField("username")
                 .passwordField("password")
@@ -103,16 +112,16 @@ public class ZapScannerTest {
                 .build();
         
         // Create scan configuration with authentication
-        ScanConfig config = new ScanConfig.Builder("https://example.com")
-                .spiderEnabled(true)
-                .activeScanEnabled(true)
-                .passiveScanEnabled(true)
-                .scanPolicy(PolicyManager.createOwaspTop10Policy())
-                .authentication(authConfig, new FormAuthenticationHandler())
+        ScanConfig config = new ScanConfig.Builder()
+                .zapHost("localhost")
+                .zapPort(8080)
+                .zapApiKey("api-key")
+                .contextName("test-context")
+                .authenticationConfig(authConfig)
                 .build();
         
         // Perform scan
-        ScanResult result = zapScanner.scanWebApplication(config);
+        ScanResult result = zapScanner.scanWebApplication("https://example.com");
         
         // Verify result
         assertNotNull(result);
@@ -136,13 +145,16 @@ public class ZapScannerTest {
         mockAlerts();
         
         // Create scan configuration
-        ScanConfig config = new ScanConfig.Builder("https://example.com/api")
-                .activeScanEnabled(true)
-                .passiveScanEnabled(true)
+        ScanConfig config = new ScanConfig.Builder()
+                .zapHost("localhost")
+                .zapPort(8080)
+                .zapApiKey("api-key")
+                .contextName("test-context")
                 .build();
         
         // Perform scan
-        ScanResult result = zapScanner.scanOpenApi(config, "https://example.com/api-docs");
+        URL openApiUrl = new URL("https://example.com/api-docs");
+        ScanResult result = zapScanner.scanOpenApi(openApiUrl);
         
         // Verify result
         assertNotNull(result);
@@ -151,7 +163,7 @@ public class ZapScannerTest {
         verify(zapClient).callApi(
                 eq("openapi"), 
                 eq("action"), 
-                eq("importFile"), 
+                eq("importUrl"), 
                 anyMap());
     }
 
@@ -164,8 +176,13 @@ public class ZapScannerTest {
     @Test
     public void testInvalidAddress() {
         // Test constructor with invalid address
+        ScanConfig config = new ScanConfig.Builder()
+                .zapHost("invalid:address:format")
+                .zapPort(-1)
+                .build();
+                
         assertThrows(ZapScannerException.class, () -> {
-            new ZapScanner("invalid:address:format", null);
+            new ZapScanner(config);
         });
     }
 
@@ -209,7 +226,7 @@ public class ZapScannerTest {
     private void mockOpenApiImport() throws Exception {
         ApiResponse importResponse = mock(ApiResponse.class);
         when(importResponse.toString()).thenReturn("host=https://example.com/api");
-        when(zapClient.callApi(eq("openapi"), eq("action"), eq("importFile"), anyMap()))
+        when(zapClient.callApi(eq("openapi"), eq("action"), eq("importUrl"), anyMap()))
                 .thenReturn(importResponse);
     }
 

@@ -1,228 +1,331 @@
 package com.securitytesting.zap.auth;
 
-import com.securitytesting.zap.config.AuthenticationConfig;
 import com.securitytesting.zap.exception.AuthenticationException;
-import org.apache.hc.client5.http.classic.methods.HttpPost;
-import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.NameValuePair;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zaproxy.clientapi.core.ApiResponse;
+import org.zaproxy.clientapi.core.ApiResponseElement;
 import org.zaproxy.clientapi.core.ClientApi;
 import org.zaproxy.clientapi.core.ClientApiException;
 
+import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 /**
- * Authentication handler for OAuth2-based authentication.
+ * Authentication handler for OAuth 2.0 authentication.
+ * Uses a custom script to handle OAuth 2.0 authentication in ZAP.
  */
 public class OAuth2AuthenticationHandler implements AuthenticationHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OAuth2AuthenticationHandler.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    // Store token for reuse
-    private String accessToken;
-
+    
+    private final ClientApi zapClient;
+    private final String clientId;
+    private final String clientSecret;
+    private final String tokenUrl;
+    private final String authorizationUrl;
+    private final String scope;
+    private final String scriptName;
+    private File scriptFile;
+    
+    /**
+     * Builder for OAuth2 authentication handler.
+     */
+    public static class Builder {
+        private final ClientApi zapClient;
+        private final String clientId;
+        private final String clientSecret;
+        private final String tokenUrl;
+        private final String authorizationUrl;
+        private String scope;
+        
+        /**
+         * Creates a new builder with the required parameters.
+         * 
+         * @param zapClient The ZAP client
+         * @param clientId The client ID
+         * @param clientSecret The client secret
+         * @param tokenUrl The token URL
+         * @param authorizationUrl The authorization URL
+         */
+        public Builder(ClientApi zapClient, String clientId, String clientSecret, String tokenUrl, 
+                      String authorizationUrl) {
+            this.zapClient = zapClient;
+            this.clientId = clientId;
+            this.clientSecret = clientSecret;
+            this.tokenUrl = tokenUrl;
+            this.authorizationUrl = authorizationUrl;
+        }
+        
+        /**
+         * Sets the scope.
+         * 
+         * @param scope The scope
+         * @return The builder
+         */
+        public Builder scope(String scope) {
+            this.scope = scope;
+            return this;
+        }
+        
+        /**
+         * Builds the OAuth2 authentication handler.
+         * 
+         * @return The OAuth2 authentication handler
+         */
+        public OAuth2AuthenticationHandler build() {
+            return new OAuth2AuthenticationHandler(this);
+        }
+    }
+    
+    /**
+     * Creates a new OAuth2 authentication handler from a builder.
+     * 
+     * @param builder The builder
+     */
+    private OAuth2AuthenticationHandler(Builder builder) {
+        this.zapClient = builder.zapClient;
+        this.clientId = builder.clientId;
+        this.clientSecret = builder.clientSecret;
+        this.tokenUrl = builder.tokenUrl;
+        this.authorizationUrl = builder.authorizationUrl;
+        this.scope = builder.scope;
+        this.scriptName = "oauth2-auth-" + System.currentTimeMillis();
+    }
+    
+    /**
+     * Creates a new OAuth2 authentication handler with the specified parameters.
+     * 
+     * @param zapClient The ZAP client API
+     * @param clientId The client ID
+     * @param clientSecret The client secret
+     * @param tokenUrl The token URL
+     * @param authorizationUrl The authorization URL
+     * @param scope The scope
+     */
+    public OAuth2AuthenticationHandler(ClientApi zapClient, String clientId, String clientSecret, 
+                                      String tokenUrl, String authorizationUrl, String scope) {
+        this.zapClient = zapClient;
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+        this.tokenUrl = tokenUrl;
+        this.authorizationUrl = authorizationUrl;
+        this.scope = scope;
+        this.scriptName = "oauth2-auth-" + System.currentTimeMillis();
+    }
+    
     @Override
-    public void configureAuthentication(ClientApi zapClient, AuthenticationConfig authConfig, int contextId) 
-            throws AuthenticationException {
-        LOGGER.debug("Configuring OAuth2-based authentication for context {}", contextId);
-        
-        validateConfig(authConfig);
-        
+    public Integer setupAuthentication(String contextName) throws AuthenticationException {
         try {
-            // Set up script authentication method for OAuth2
-            String scriptName = "oauth2-auth-" + contextId;
+            LOGGER.info("Setting up OAuth2 authentication for context: {}", contextName);
             
-            // Create script for OAuth2 authentication
-            String scriptContent = createOAuth2AuthScript(authConfig);
+            // Create a new context if it doesn't exist
+            ApiResponse contextResponse = zapClient.context.newContext(contextName);
             
-            // Load script into ZAP
+            // Extract context ID
+            String contextIdStr = ((ApiResponseElement) contextResponse).getValue();
+            Integer contextId = Integer.valueOf(contextIdStr);
+            LOGGER.debug("Context ID: {}", contextId);
+            
+            // Create a script for OAuth2 authentication
+            createOAuth2Script(contextId);
+            
+            // Load the script into ZAP
             zapClient.script.load(
-                    scriptName, 
-                    "authentication", 
-                    "Oracle Nashorn", 
-                    "JavaScript", 
-                    scriptContent, 
-                    "");
+                scriptName,
+                "authentication",
+                "ECMAScript",
+                scriptFile.getAbsolutePath(),
+                "OAuth2 Authentication Script",
+                null);
             
-            // Set authentication method to script-based
+            // Configure authentication to use the script
             Map<String, String> params = new HashMap<>();
             params.put("contextId", String.valueOf(contextId));
             params.put("scriptName", scriptName);
             
-            zapClient.authentication.setAuthenticationMethod(
-                    params, 
-                    "scriptBasedAuthentication");
+            zapClient.authentication.setAuthenticationMethod(params, "scriptBasedAuthentication");
             
-            LOGGER.debug("OAuth2-based authentication configured successfully for context {}", contextId);
+            // Create a user in the context
+            createUser(contextId, clientId, clientSecret);
             
-        } catch (ClientApiException e) {
-            LOGGER.error("Failed to configure OAuth2-based authentication", e);
-            throw new AuthenticationException("Failed to configure OAuth2-based authentication", e);
-        }
-    }
-
-    @Override
-    public void createAuthentication(ClientApi zapClient, AuthenticationConfig authConfig, int contextId) 
-            throws AuthenticationException {
-        LOGGER.debug("Creating OAuth2 authentication session for context {}", contextId);
-        
-        try {
-            // Obtain OAuth2 token
-            accessToken = obtainOAuth2Token(authConfig);
-            
-            if (accessToken == null || accessToken.isEmpty()) {
-                throw new AuthenticationException("Failed to obtain OAuth2 token");
-            }
-            
-            // Create a user
-            String userId = createUser(zapClient, contextId, "oauth2-user");
-            
-            // Set user credentials
-            StringBuilder credentialsBuilder = new StringBuilder();
-            credentialsBuilder.append("token=").append(accessToken);
-            
-            zapClient.users.setAuthenticationCredentials(
-                    contextId, 
-                    userId, 
-                    credentialsBuilder.toString());
-            
-            // Enable user
-            zapClient.users.setUserEnabled(contextId, userId, true);
-            
-            LOGGER.debug("OAuth2 authentication user created and enabled for context {}", contextId);
-            
+            LOGGER.info("OAuth2 authentication setup complete for context: {}", contextName);
+            return contextId;
         } catch (ClientApiException | IOException e) {
-            LOGGER.error("Failed to create OAuth2 authentication session", e);
-            throw new AuthenticationException("Failed to create OAuth2 authentication session", e);
+            LOGGER.error("Failed to set up OAuth2 authentication", e);
+            throw new AuthenticationException("Failed to set up OAuth2 authentication: " + e.getMessage(), e);
         }
     }
-
+    
     @Override
-    public boolean verifyAuthentication(ClientApi zapClient, AuthenticationConfig authConfig, int contextId) 
-            throws AuthenticationException {
-        LOGGER.debug("Verifying OAuth2-based authentication for context {}", contextId);
-        
-        // The token was obtained in createAuthentication, so we can verify it was successful
-        return accessToken != null && !accessToken.isEmpty();
+    public void setupAuthentication(int contextId) throws AuthenticationException {
+        try {
+            LOGGER.info("Setting up OAuth2 authentication for context ID: {}", contextId);
+            
+            // Create a script for OAuth2 authentication
+            createOAuth2Script(contextId);
+            
+            // Load the script into ZAP
+            zapClient.script.load(
+                scriptName,
+                "authentication",
+                "ECMAScript",
+                scriptFile.getAbsolutePath(),
+                "OAuth2 Authentication Script",
+                null);
+            
+            // Configure authentication to use the script
+            Map<String, String> params = new HashMap<>();
+            params.put("contextId", String.valueOf(contextId));
+            params.put("scriptName", scriptName);
+            
+            zapClient.authentication.setAuthenticationMethod(params, "scriptBasedAuthentication");
+            
+            // Create a user in the context
+            createUser(contextId, clientId, clientSecret);
+            
+            LOGGER.info("OAuth2 authentication setup complete for context ID: {}", contextId);
+        } catch (ClientApiException | IOException e) {
+            LOGGER.error("Failed to set up OAuth2 authentication", e);
+            throw new AuthenticationException("Failed to set up OAuth2 authentication: " + e.getMessage(), e);
+        }
     }
-
+    
     @Override
     public void cleanup(ClientApi zapClient, int contextId) throws AuthenticationException {
-        LOGGER.debug("Cleaning up OAuth2-based authentication resources for context {}", contextId);
-        
         try {
-            // Remove the authentication script
-            String scriptName = "oauth2-auth-" + contextId;
-            zapClient.script.remove(scriptName);
+            LOGGER.info("Cleaning up OAuth2 authentication for context ID: {}", contextId);
             
-            // Clear token
-            accessToken = null;
+            // Remove the script
+            if (scriptName != null) {
+                zapClient.script.remove(scriptName);
+            }
             
-            LOGGER.debug("OAuth2-based authentication resources cleaned up for context {}", contextId);
+            // Delete the temporary script file
+            if (scriptFile != null && scriptFile.exists()) {
+                scriptFile.delete();
+            }
             
+            LOGGER.info("OAuth2 authentication cleanup complete for context ID: {}", contextId);
         } catch (ClientApiException e) {
-            LOGGER.error("Failed to clean up OAuth2-based authentication resources", e);
-            throw new AuthenticationException("Failed to clean up OAuth2-based authentication resources", e);
+            LOGGER.error("Failed to clean up OAuth2 authentication", e);
+            throw new AuthenticationException("Failed to clean up OAuth2 authentication: " + e.getMessage(), e);
         }
     }
-
-    private void validateConfig(AuthenticationConfig authConfig) throws AuthenticationException {
-        if (authConfig.getAuthType() != AuthenticationConfig.AuthType.OAUTH2) {
-            throw new AuthenticationException("Invalid authentication type for OAuth2AuthenticationHandler");
+    
+    /**
+     * Creates a user in a context.
+     * 
+     * @param contextId The context ID
+     * @param username The username
+     * @param password The password
+     * @return The user ID
+     * @throws ClientApiException If user creation fails
+     */
+    private int createUser(int contextId, String username, String password) throws ClientApiException {
+        LOGGER.debug("Creating user for context ID {}: {}", contextId, username);
+        
+        // Create the user
+        ApiResponse response = zapClient.users.newUser(String.valueOf(contextId), username);
+        String userIdStr = ((ApiResponseElement) response).getValue();
+        int userId = Integer.parseInt(userIdStr);
+        
+        // Set user credentials
+        Map<String, String> params = new HashMap<>();
+        params.put("contextId", String.valueOf(contextId));
+        params.put("userId", String.valueOf(userId));
+        params.put("authCredentialsConfigParams", "username=" + username + "&password=" + password);
+        
+        zapClient.users.setAuthenticationCredentials(params);
+        
+        // Enable the user
+        zapClient.users.setUserEnabled(String.valueOf(contextId), String.valueOf(userId), "true");
+        
+        LOGGER.debug("User created for context ID {}: {} (ID: {})", contextId, username, userId);
+        return userId;
+    }
+    
+    /**
+     * Creates a JavaScript file that implements OAuth2 authentication.
+     * 
+     * @param contextId The context ID
+     * @throws IOException If script creation fails
+     */
+    private void createOAuth2Script(int contextId) throws IOException {
+        LOGGER.debug("Creating OAuth2 authentication script for context ID: {}", contextId);
+        
+        // Create a temporary file for the script
+        scriptFile = File.createTempFile("oauth2-auth-", ".js");
+        scriptFile.deleteOnExit();
+        
+        // Script content
+        StringBuilder scriptContent = new StringBuilder();
+        scriptContent.append("// OAuth2 Authentication Script\n");
+        scriptContent.append("// Automatically generated by ZapScanner\n\n");
+        
+        scriptContent.append("var CLIENT_ID = \"").append(clientId).append("\";\n");
+        scriptContent.append("var CLIENT_SECRET = \"").append(clientSecret).append("\";\n");
+        scriptContent.append("var TOKEN_URL = \"").append(tokenUrl).append("\";\n");
+        scriptContent.append("var AUTHORIZATION_URL = \"").append(authorizationUrl).append("\";\n");
+        
+        if (scope != null && !scope.isEmpty()) {
+            scriptContent.append("var SCOPE = \"").append(scope).append("\";\n");
         }
         
-        if (authConfig.getTokenEndpoint() == null || authConfig.getTokenEndpoint().isEmpty()) {
-            throw new AuthenticationException("Token endpoint is required for OAuth2-based authentication");
+        scriptContent.append("\n");
+        
+        scriptContent.append("function authenticate(helper, paramsValues, credentials) {\n");
+        scriptContent.append("  var clientId = credentials.getParam(\"username\");\n");
+        scriptContent.append("  var clientSecret = credentials.getParam(\"password\");\n");
+        scriptContent.append("  \n");
+        scriptContent.append("  // Get an access token using client credentials grant\n");
+        scriptContent.append("  var tokenRequestBody = \"grant_type=client_credentials\";\n");
+        
+        if (scope != null && !scope.isEmpty()) {
+            scriptContent.append("  tokenRequestBody += \"&scope=\" + encodeURIComponent(SCOPE);\n");
         }
         
-        if (authConfig.getClientId() == null || authConfig.getClientId().isEmpty()) {
-            throw new AuthenticationException("Client ID is required for OAuth2-based authentication");
-        }
-    }
-
-    private String createOAuth2AuthScript(AuthenticationConfig authConfig) {
-        // Create a JavaScript authentication script for ZAP that adds the OAuth2 bearer token
-        return "function authenticate(helper, paramsValues, credentials) {\n" +
-               "    var token = credentials.getParam('token');\n" +
-               "    return token !== null;\n" +
-               "}\n\n" +
-               "function getRequiredParamsNames() {\n" +
-               "    return [];\n" +
-               "}\n\n" +
-               "function getCredentialsParamsNames() {\n" +
-               "    return [\"token\"];\n" +
-               "}\n\n" +
-               "function getOptionalParamsNames() {\n" +
-               "    return [];\n" +
-               "}\n\n" +
-               "function getHeadersForAuthentication(helper, paramsValues, credentials) {\n" +
-               "    var headers = {};\n" +
-               "    headers['Authorization'] = 'Bearer ' + credentials.getParam('token');\n" +
-               "    return headers;\n" +
-               "}\n";
-    }
-
-    private String obtainOAuth2Token(AuthenticationConfig authConfig) throws IOException {
-        LOGGER.debug("Obtaining OAuth2 token from endpoint: {}", authConfig.getTokenEndpoint());
+        scriptContent.append("  tokenRequestBody += \"&client_id=\" + encodeURIComponent(clientId);\n");
+        scriptContent.append("  tokenRequestBody += \"&client_secret=\" + encodeURIComponent(clientSecret);\n");
+        scriptContent.append("  \n");
+        scriptContent.append("  // Set up the token request\n");
+        scriptContent.append("  var tokenRequest = \"POST \" + TOKEN_URL;\n");
+        scriptContent.append("  var tokenHeaders = \"Content-Type: application/x-www-form-urlencoded\";\n");
+        scriptContent.append("  var tokenMsg = helper.prepareMessage();\n");
+        scriptContent.append("  \n");
+        scriptContent.append("  // Send the token request\n");
+        scriptContent.append("  var tokenResponse = helper.sendAndReceive(tokenMsg, tokenRequestBody, tokenHeaders);\n");
+        scriptContent.append("  var tokenResponseBody = tokenResponse.getResponseBody().toString();\n");
+        scriptContent.append("  \n");
+        scriptContent.append("  // Parse the JSON response\n");
+        scriptContent.append("  var json = JSON.parse(tokenResponseBody);\n");
+        scriptContent.append("  var accessToken = json.access_token;\n");
+        scriptContent.append("  \n");
+        scriptContent.append("  // Store the access token in the session\n");
+        scriptContent.append("  helper.getCorrespondingHttpMessage().getRequestHeader().setHeader(\"Authorization\", \"Bearer \" + accessToken);\n");
+        scriptContent.append("  \n");
+        scriptContent.append("  return tokenResponse;\n");
+        scriptContent.append("}\n\n");
         
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost httpPost = new HttpPost(authConfig.getTokenEndpoint());
-            
-            // Prepare request parameters
-            List<NameValuePair> params = new ArrayList<>();
-            params.add(new BasicNameValuePair("grant_type", "client_credentials"));
-            params.add(new BasicNameValuePair("client_id", authConfig.getClientId()));
-            
-            if (authConfig.getClientSecret() != null && !authConfig.getClientSecret().isEmpty()) {
-                params.add(new BasicNameValuePair("client_secret", authConfig.getClientSecret()));
-            }
-            
-            if (authConfig.getScope() != null && !authConfig.getScope().isEmpty()) {
-                params.add(new BasicNameValuePair("scope", authConfig.getScope()));
-            }
-            
-            httpPost.setEntity(new UrlEncodedFormEntity(params));
-            httpPost.addHeader("Content-Type", "application/x-www-form-urlencoded");
-            httpPost.addHeader("Accept", "application/json");
-            
-            // Execute request
-            try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
-                if (response.getCode() != 200) {
-                    LOGGER.error("OAuth2 token request failed with status: {}", response.getCode());
-                    return null;
-                }
-                
-                // Parse response
-                String responseBody = EntityUtils.toString(response.getEntity());
-                JsonNode jsonResponse = OBJECT_MAPPER.readTree(responseBody);
-                
-                if (jsonResponse.has("access_token")) {
-                    String token = jsonResponse.get("access_token").asText();
-                    LOGGER.debug("OAuth2 token obtained successfully");
-                    return token;
-                } else {
-                    LOGGER.error("OAuth2 response does not contain access_token: {}", responseBody);
-                    return null;
-                }
-            }
-        }
-    }
-
-    private String createUser(ClientApi zapClient, int contextId, String username) throws ClientApiException {
-        return zapClient.users.newUser(contextId, username).toString(0).split("\\s+")[1];
+        scriptContent.append("function getRequiredParamsNames() {\n");
+        scriptContent.append("  return [];\n");
+        scriptContent.append("}\n\n");
+        
+        scriptContent.append("function getOptionalParamsNames() {\n");
+        scriptContent.append("  return [];\n");
+        scriptContent.append("}\n\n");
+        
+        scriptContent.append("function getCredentialsParamsNames() {\n");
+        scriptContent.append("  return [\"username\", \"password\"];\n");
+        scriptContent.append("}\n");
+        
+        // Write the script to the file
+        Files.write(Paths.get(scriptFile.getAbsolutePath()), scriptContent.toString().getBytes());
+        
+        LOGGER.debug("OAuth2 authentication script created at: {}", scriptFile.getAbsolutePath());
     }
 }

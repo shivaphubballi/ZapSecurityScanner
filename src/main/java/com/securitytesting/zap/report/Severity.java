@@ -1,61 +1,63 @@
 package com.securitytesting.zap.report;
 
 /**
- * Enumeration of severity levels for security vulnerabilities.
+ * Enum representing the severity levels of security alerts.
  */
 public enum Severity {
+    /**
+     * High severity alerts represent critical security issues that must be addressed immediately.
+     */
+    HIGH,
     
-    INFORMATIONAL(0, "Informational", "Informational alerts provide contextual information but don't indicate a security risk."),
-    LOW(1, "Low", "Low severity issues present minimal risk to the application."),
-    MEDIUM(2, "Medium", "Medium severity issues present moderate risk and should be addressed."),
-    HIGH(3, "High", "High severity issues present significant risk and require prompt remediation."),
-    CRITICAL(4, "Critical", "Critical issues present severe, immediate risk and demand urgent remediation.");
+    /**
+     * Medium severity alerts represent significant security issues that should be addressed soon.
+     */
+    MEDIUM,
     
-    private final int level;
-    private final String name;
-    private final String description;
+    /**
+     * Low severity alerts represent minor security issues that should be addressed when possible.
+     */
+    LOW,
     
-    Severity(int level, String name, String description) {
-        this.level = level;
-        this.name = name;
-        this.description = description;
+    /**
+     * Informational alerts represent potential security issues or best practices.
+     */
+    INFORMATIONAL;
+    
+    /**
+     * Converts a string severity value to a Severity enum.
+     * 
+     * @param value The string severity value (case-insensitive)
+     * @return The corresponding Severity enum, or INFORMATIONAL if not recognized
+     */
+    public static Severity fromString(String value) {
+        if (value == null || value.isEmpty()) {
+            return INFORMATIONAL;
+        }
+        
+        switch (value.toUpperCase()) {
+            case "HIGH":
+                return HIGH;
+            case "MEDIUM":
+                return MEDIUM;
+            case "LOW":
+                return LOW;
+            case "INFORMATIONAL":
+            case "INFO":
+                return INFORMATIONAL;
+            default:
+                return INFORMATIONAL;
+        }
     }
     
     /**
-     * Gets the numeric level of this severity.
+     * Converts an integer severity value to a Severity enum.
      * 
-     * @return The severity level (higher means more severe)
+     * @param value The integer severity value (3 = HIGH, 2 = MEDIUM, 1 = LOW, 0 = INFORMATIONAL)
+     * @return The corresponding Severity enum, or INFORMATIONAL if not recognized
      */
-    public int getLevel() {
-        return level;
-    }
-    
-    /**
-     * Gets the name of this severity level.
-     * 
-     * @return The severity name
-     */
-    public String getName() {
-        return name;
-    }
-    
-    /**
-     * Gets a description of this severity level.
-     * 
-     * @return The severity description
-     */
-    public String getDescription() {
-        return description;
-    }
-    
-    /**
-     * Gets a severity enum value from the ZAP API risk index.
-     * 
-     * @param riskIndex The risk index from ZAP API (0-3)
-     * @return The corresponding severity enum value
-     */
-    public static Severity fromZapRiskIndex(int riskIndex) {
-        switch (riskIndex) {
+    public static Severity fromValue(int value) {
+        switch (value) {
             case 3:
                 return HIGH;
             case 2:
@@ -63,29 +65,50 @@ public enum Severity {
             case 1:
                 return LOW;
             case 0:
+                return INFORMATIONAL;
             default:
                 return INFORMATIONAL;
         }
     }
     
     /**
-     * Gets a severity enum value from a string representation.
+     * Converts the Severity enum to an integer value.
      * 
-     * @param severityName The severity name
-     * @return The corresponding severity enum value, or INFORMATIONAL if not recognized
+     * @return The integer value (3 = HIGH, 2 = MEDIUM, 1 = LOW, 0 = INFORMATIONAL)
      */
-    public static Severity fromString(String severityName) {
-        if (severityName == null) {
-            return INFORMATIONAL;
+    public int getValue() {
+        switch (this) {
+            case HIGH:
+                return 3;
+            case MEDIUM:
+                return 2;
+            case LOW:
+                return 1;
+            case INFORMATIONAL:
+                return 0;
+            default:
+                return 0;
         }
-        
-        for (Severity severity : values()) {
-            if (severity.name.equalsIgnoreCase(severityName) || 
-                severity.name().equalsIgnoreCase(severityName)) {
-                return severity;
-            }
+    }
+    
+    /**
+     * Returns a human-readable string representation of the severity.
+     * 
+     * @return A human-readable string representation of the severity
+     */
+    @Override
+    public String toString() {
+        switch (this) {
+            case HIGH:
+                return "High";
+            case MEDIUM:
+                return "Medium";
+            case LOW:
+                return "Low";
+            case INFORMATIONAL:
+                return "Informational";
+            default:
+                return "Unknown";
         }
-        
-        return INFORMATIONAL;
     }
 }

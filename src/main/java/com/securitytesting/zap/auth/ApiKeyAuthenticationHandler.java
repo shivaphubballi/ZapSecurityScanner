@@ -1,158 +1,219 @@
 package com.securitytesting.zap.auth;
 
-import com.securitytesting.zap.config.AuthenticationConfig;
 import com.securitytesting.zap.exception.AuthenticationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zaproxy.clientapi.core.ApiResponse;
+import org.zaproxy.clientapi.core.ApiResponseElement;
 import org.zaproxy.clientapi.core.ClientApi;
 import org.zaproxy.clientapi.core.ClientApiException;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Authentication handler for API key-based authentication.
+ * Authentication handler for API key authentication.
+ * Uses a custom script to handle API key authentication in ZAP.
  */
 public class ApiKeyAuthenticationHandler implements AuthenticationHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiKeyAuthenticationHandler.class);
-
+    
+    private final ClientApi zapClient;
+    private final String apiKeyHeaderName;
+    private final String apiKeyValue;
+    private final String scriptName;
+    private File scriptFile;
+    
+    /**
+     * Creates a new API key authentication handler with the specified parameters.
+     * 
+     * @param zapClient The ZAP client API
+     * @param apiKeyHeaderName The name of the header for the API key
+     * @param apiKeyValue The value of the API key
+     */
+    public ApiKeyAuthenticationHandler(ClientApi zapClient, String apiKeyHeaderName, String apiKeyValue) {
+        this.zapClient = zapClient;
+        this.apiKeyHeaderName = apiKeyHeaderName;
+        this.apiKeyValue = apiKeyValue;
+        this.scriptName = "api-key-auth-" + System.currentTimeMillis();
+    }
+    
     @Override
-    public void configureAuthentication(ClientApi zapClient, AuthenticationConfig authConfig, int contextId) 
-            throws AuthenticationException {
-        LOGGER.debug("Configuring API key-based authentication for context {}", contextId);
-        
-        validateConfig(authConfig);
-        
+    public Integer setupAuthentication(String contextName) throws AuthenticationException {
         try {
-            // Set up script authentication method since ZAP doesn't have a built-in API key auth method
-            String scriptName = "api-key-auth-" + contextId;
+            LOGGER.info("Setting up API key authentication for context: {}", contextName);
             
-            // Create script for API key authentication
-            String scriptContent = createApiKeyAuthScript(authConfig);
+            // Create a new context if it doesn't exist
+            ApiResponse contextResponse = zapClient.context.newContext(contextName);
             
-            // Load script into ZAP
+            // Extract context ID
+            String contextIdStr = ((ApiResponseElement) contextResponse).getValue();
+            Integer contextId = Integer.valueOf(contextIdStr);
+            LOGGER.debug("Context ID: {}", contextId);
+            
+            // Create a script for API key authentication
+            createApiKeyScript(contextId, apiKeyHeaderName, apiKeyValue);
+            
+            // Load the script into ZAP
             zapClient.script.load(
-                    scriptName, 
-                    "authentication", 
-                    "Oracle Nashorn", 
-                    "JavaScript", 
-                    scriptContent, 
-                    "");
+                scriptName,
+                "authentication",
+                "ECMAScript",
+                scriptFile.getAbsolutePath(),
+                "API Key Authentication Script",
+                null);
             
-            // Set authentication method to script-based
+            // Configure authentication to use the script
             Map<String, String> params = new HashMap<>();
-            params.put("contextId", String.valueOf(contextId));
+            params.put("contextId", contextId.toString());
             params.put("scriptName", scriptName);
             
-            zapClient.authentication.setAuthenticationMethod(
-                    params, 
-                    "scriptBasedAuthentication");
+            zapClient.authentication.setAuthenticationMethod(params, "scriptBasedAuthentication");
             
-            LOGGER.debug("API key-based authentication configured successfully for context {}", contextId);
-            
-        } catch (ClientApiException e) {
-            LOGGER.error("Failed to configure API key-based authentication", e);
-            throw new AuthenticationException("Failed to configure API key-based authentication", e);
+            LOGGER.info("API key authentication setup complete for context: {}", contextName);
+            return contextId;
+        } catch (ClientApiException | IOException e) {
+            LOGGER.error("Failed to set up API key authentication", e);
+            throw new AuthenticationException("Failed to set up API key authentication: " + e.getMessage(), e);
         }
     }
-
+    
     @Override
-    public void createAuthentication(ClientApi zapClient, AuthenticationConfig authConfig, int contextId) 
-            throws AuthenticationException {
-        LOGGER.debug("Creating API key authentication session for context {}", contextId);
-        
+    public void setupAuthentication(int contextId) throws AuthenticationException {
         try {
-            // Create a user
-            String userId = createUser(zapClient, contextId, "api-key-user");
+            LOGGER.info("Setting up API key authentication for context ID: {}", contextId);
             
-            // Set user credentials - in this case, just the API key
-            StringBuilder credentialsBuilder = new StringBuilder();
-            credentialsBuilder.append("api-key=").append(authConfig.getApiKey());
+            // Create a script for API key authentication
+            createApiKeyScript(contextId, apiKeyHeaderName, apiKeyValue);
             
-            zapClient.users.setAuthenticationCredentials(
-                    contextId, 
-                    userId, 
-                    credentialsBuilder.toString());
+            // Load the script into ZAP
+            zapClient.script.load(
+                scriptName,
+                "authentication",
+                "ECMAScript",
+                scriptFile.getAbsolutePath(),
+                "API Key Authentication Script",
+                null);
             
-            // Enable user
-            zapClient.users.setUserEnabled(contextId, userId, true);
+            // Configure authentication to use the script
+            Map<String, String> params = new HashMap<>();
+            params.put("contextId", Integer.toString(contextId));
+            params.put("scriptName", scriptName);
             
-            LOGGER.debug("API key authentication user created and enabled for context {}", contextId);
+            zapClient.authentication.setAuthenticationMethod(params, "scriptBasedAuthentication");
             
-        } catch (ClientApiException e) {
-            LOGGER.error("Failed to create API key authentication session", e);
-            throw new AuthenticationException("Failed to create API key authentication session", e);
+            LOGGER.info("API key authentication setup complete for context ID: {}", contextId);
+        } catch (ClientApiException | IOException e) {
+            LOGGER.error("Failed to set up API key authentication", e);
+            throw new AuthenticationException("Failed to set up API key authentication: " + e.getMessage(), e);
         }
     }
-
-    @Override
-    public boolean verifyAuthentication(ClientApi zapClient, AuthenticationConfig authConfig, int contextId) 
-            throws AuthenticationException {
-        LOGGER.debug("Verifying API key-based authentication for context {}", contextId);
-        
-        // For API key-based authentication, we can only verify that the configuration is in place
-        // The actual verification would happen during scanning
-        return true;
-    }
-
+    
     @Override
     public void cleanup(ClientApi zapClient, int contextId) throws AuthenticationException {
-        LOGGER.debug("Cleaning up API key-based authentication resources for context {}", contextId);
-        
         try {
-            // Remove the authentication script
-            String scriptName = "api-key-auth-" + contextId;
-            zapClient.script.remove(scriptName);
+            LOGGER.info("Cleaning up API key authentication for context ID: {}", contextId);
             
-            LOGGER.debug("API key-based authentication resources cleaned up for context {}", contextId);
+            // Remove the script
+            if (scriptName != null) {
+                zapClient.script.remove(scriptName);
+            }
             
+            // Delete the temporary script file
+            if (scriptFile != null && scriptFile.exists()) {
+                scriptFile.delete();
+            }
+            
+            LOGGER.info("API key authentication cleanup complete for context ID: {}", contextId);
         } catch (ClientApiException e) {
-            LOGGER.error("Failed to clean up API key-based authentication resources", e);
-            throw new AuthenticationException("Failed to clean up API key-based authentication resources", e);
+            LOGGER.error("Failed to clean up API key authentication", e);
+            throw new AuthenticationException("Failed to clean up API key authentication: " + e.getMessage(), e);
         }
     }
-
-    private void validateConfig(AuthenticationConfig authConfig) throws AuthenticationException {
-        if (authConfig.getAuthType() != AuthenticationConfig.AuthType.API_KEY) {
-            throw new AuthenticationException("Invalid authentication type for ApiKeyAuthenticationHandler");
-        }
+    
+    /**
+     * Creates a JavaScript file that implements API key authentication.
+     * 
+     * @param contextId The context ID
+     * @param headerName The name of the header for the API key
+     * @param headerValue The value of the API key
+     * @throws IOException If script creation fails
+     */
+    private void createApiKeyScript(int contextId, String headerName, String headerValue) throws IOException {
+        LOGGER.debug("Creating API key authentication script for context ID: {}", contextId);
         
-        if (authConfig.getApiKey() == null || authConfig.getApiKey().isEmpty()) {
-            throw new AuthenticationException("API key is required for API key-based authentication");
-        }
+        // Create a temporary file for the script
+        scriptFile = File.createTempFile("api-key-auth-", ".js");
+        scriptFile.deleteOnExit();
         
-        if (authConfig.getApiKeyHeader() == null || authConfig.getApiKeyHeader().isEmpty()) {
-            throw new AuthenticationException("API key header name is required for API key-based authentication");
-        }
+        // Script content
+        StringBuilder scriptContent = new StringBuilder();
+        scriptContent.append("// API Key Authentication Script\n");
+        scriptContent.append("// Automatically generated by ZapScanner\n\n");
+        
+        scriptContent.append("function authenticate(helper, paramsValues, credentials) {\n");
+        scriptContent.append("  // Add the API key as a header\n");
+        scriptContent.append("  var requestHeader = \"").append(headerName).append(": ").append(headerValue).append("\";\n");
+        scriptContent.append("  helper.addRequestHeader(requestHeader);\n");
+        scriptContent.append("  return helper.requestUrl(\"\");\n");
+        scriptContent.append("}\n\n");
+        
+        scriptContent.append("function getRequiredParamsNames() {\n");
+        scriptContent.append("  return [];\n");
+        scriptContent.append("}\n\n");
+        
+        scriptContent.append("function getOptionalParamsNames() {\n");
+        scriptContent.append("  return [];\n");
+        scriptContent.append("}\n\n");
+        
+        scriptContent.append("function getCredentialsParamsNames() {\n");
+        scriptContent.append("  return [];\n");
+        scriptContent.append("}\n");
+        
+        // Write the script to the file
+        Files.write(Paths.get(scriptFile.getAbsolutePath()), scriptContent.toString().getBytes());
+        
+        LOGGER.debug("API key authentication script created at: {}", scriptFile.getAbsolutePath());
     }
-
-    private String createApiKeyAuthScript(AuthenticationConfig authConfig) {
-        // Create a JavaScript authentication script for ZAP that adds the API key header
-        String headerName = authConfig.getApiKeyHeader();
-        String apiKey = authConfig.getApiKey();
-        
-        return "function authenticate(helper, paramsValues, credentials) {\n" +
-               "    var apiKey = credentials.getParam('api-key');\n" +
-               "    return apiKey !== null;\n" +
-               "}\n\n" +
-               "function getRequiredParamsNames() {\n" +
-               "    return [\"api-key\"];\n" +
-               "}\n\n" +
-               "function getCredentialsParamsNames() {\n" +
-               "    return [\"api-key\"];\n" +
-               "}\n\n" +
-               "function getOptionalParamsNames() {\n" +
-               "    return [];\n" +
-               "}\n\n" +
-               "function getHeadersForAuthentication(helper, paramsValues, credentials) {\n" +
-               "    var headers = {};\n" +
-               "    headers[\"" + headerName + "\"] = credentials.getParam(\"api-key\");\n" +
-               "    return headers;\n" +
-               "}\n";
+    
+    /**
+     * Gets the name of the API key header.
+     * 
+     * @return The name of the API key header
+     */
+    public String getApiKeyHeaderName() {
+        return apiKeyHeaderName;
     }
-
-    private String createUser(ClientApi zapClient, int contextId, String username) throws ClientApiException {
-        return zapClient.users.newUser(contextId, username).toString(0).split("\\s+")[1];
+    
+    /**
+     * Gets the value of the API key.
+     * 
+     * @return The value of the API key
+     */
+    public String getApiKeyValue() {
+        return apiKeyValue;
+    }
+    
+    /**
+     * Gets the name of the script.
+     * 
+     * @return The name of the script
+     */
+    public String getScriptName() {
+        return scriptName;
+    }
+    
+    /**
+     * Gets the script file.
+     * 
+     * @return The script file
+     */
+    public File getScriptFile() {
+        return scriptFile;
     }
 }

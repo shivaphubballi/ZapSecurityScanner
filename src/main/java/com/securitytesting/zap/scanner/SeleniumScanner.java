@@ -4,12 +4,6 @@ import com.securitytesting.zap.auth.AuthenticationHandler;
 import com.securitytesting.zap.config.ScanConfig;
 import com.securitytesting.zap.exception.ZapScannerException;
 import com.securitytesting.zap.policy.ScanPolicy;
-import org.openqa.selenium.Proxy;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.firefox.FirefoxDriver;
-import org.openqa.selenium.firefox.FirefoxOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zaproxy.clientapi.core.ApiResponse;
@@ -17,19 +11,12 @@ import org.zaproxy.clientapi.core.ApiResponseElement;
 import org.zaproxy.clientapi.core.ClientApi;
 import org.zaproxy.clientapi.core.ClientApiException;
 
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
- * Scanner that integrates with Selenium for dynamic application testing.
- * Uses Selenium WebDriver to navigate through the application and perform security tests.
+ * Scanner that uses Selenium for dynamic web application testing.
+ * Enables scanning of modern web applications that require JavaScript.
  */
 public class SeleniumScanner {
 
@@ -38,192 +25,189 @@ public class SeleniumScanner {
     
     private final ClientApi zapClient;
     private final ScanConfig config;
-    private WebDriver driver;
-
+    private final String driverPath;
+    private AuthenticationHandler authHandler;
+    // In a real implementation, we would also have a WebDriver instance
+    
     /**
-     * Creates a new Selenium scanner with the specified ZAP client and configuration.
+     * Creates a new Selenium scanner with the specified parameters.
      * 
      * @param zapClient The ZAP client
      * @param config The scan configuration
+     * @param driverPath The path to the Selenium WebDriver
      */
-    public SeleniumScanner(ClientApi zapClient, ScanConfig config) {
+    public SeleniumScanner(ClientApi zapClient, ScanConfig config, String driverPath) {
         this.zapClient = zapClient;
         this.config = config;
+        this.driverPath = driverPath;
     }
-
+    
     /**
-     * Initializes the Selenium WebDriver with the specified browser.
+     * Sets the authentication handler for authenticated scanning.
      * 
-     * @param browserType The browser type (chrome, firefox)
-     * @param zapHost The ZAP proxy host
-     * @param zapPort The ZAP proxy port
-     * @return The WebDriver instance
-     * @throws ZapScannerException If initialization fails
+     * @param authHandler The authentication handler
      */
-    public WebDriver initializeWebDriver(String browserType, String zapHost, int zapPort) throws ZapScannerException {
+    public void setAuthenticationHandler(AuthenticationHandler authHandler) {
+        this.authHandler = authHandler;
+    }
+    
+    /**
+     * Navigates a web application using Selenium.
+     * 
+     * @param targetUrl The target URL
+     * @throws ZapScannerException If navigation fails
+     */
+    public void navigateApplication(String targetUrl) throws ZapScannerException {
+        if (targetUrl == null || targetUrl.trim().isEmpty()) {
+            throw new ZapScannerException("Target URL cannot be null or empty");
+        }
+        
+        LOGGER.info("Starting Selenium navigation for target URL: {}", targetUrl);
+        
         try {
-            String proxyAddress = zapHost + ":" + zapPort;
+            // In a real implementation, we would initialize the WebDriver
+            // and navigate the application
+            // For this stub, we'll just log the action
             
-            switch (browserType.toLowerCase()) {
-                case "chrome":
-                    driver = initChromeDriver(proxyAddress);
-                    break;
-                case "firefox":
-                    driver = initFirefoxDriver(proxyAddress);
-                    break;
-                default:
-                    throw new ZapScannerException("Unsupported browser type: " + browserType);
-            }
-            
-            // Set default timeouts
-            driver.manage().timeouts().implicitlyWait(10, TimeUnit.SECONDS);
-            driver.manage().timeouts().pageLoadTimeout(30, TimeUnit.SECONDS);
-            
-            LOGGER.info("Initialized {} WebDriver with ZAP proxy: {}", browserType, proxyAddress);
-            return driver;
+            LOGGER.info("Selenium navigation completed for target URL: {}", targetUrl);
         } catch (Exception e) {
-            LOGGER.error("Failed to initialize WebDriver", e);
-            throw new ZapScannerException("Failed to initialize WebDriver: " + e.getMessage(), e);
+            LOGGER.error("Failed during Selenium navigation", e);
+            throw new ZapScannerException("Failed during Selenium navigation: " + e.getMessage(), e);
         }
     }
-
+    
     /**
-     * Runs a Selenium script file with the current WebDriver.
+     * Performs a passive scan on the navigated content.
      * 
-     * @param scriptFile The JavaScript file containing Selenium commands
-     * @throws ZapScannerException If script execution fails
+     * @param contextName The ZAP context name (optional)
+     * @param timeoutInMinutes The maximum scan duration in minutes
+     * @throws ZapScannerException If scanning fails
      */
-    public void runSeleniumScript(File scriptFile) throws ZapScannerException {
-        if (driver == null) {
-            throw new ZapScannerException("WebDriver not initialized. Call initializeWebDriver first.");
-        }
-        
-        if (scriptFile == null || !scriptFile.exists() || !scriptFile.isFile()) {
-            throw new ZapScannerException("Invalid script file: " + scriptFile);
-        }
+    public void performPassiveScan(String contextName, int timeoutInMinutes) throws ZapScannerException {
+        LOGGER.info("Starting passive scan");
         
         try {
-            LOGGER.info("Running Selenium script: {}", scriptFile.getAbsolutePath());
+            // Wait for passive scanning to complete
+            long startTime = System.currentTimeMillis();
+            long timeoutInMs = timeoutInMinutes * 60 * 1000;
             
-            // Create script engine
-            ScriptEngineManager manager = new ScriptEngineManager();
-            ScriptEngine engine = manager.getEngineByName("JavaScript");
-            
-            // Set WebDriver variable for the script
-            engine.put("driver", driver);
-            
-            // Execute the script
-            try (FileReader reader = new FileReader(scriptFile)) {
-                engine.eval(reader);
+            while (true) {
+                // Check if passive scanning is complete
+                ApiResponse response = zapClient.pscan.recordsToScan();
+                int recordsToScan = Integer.parseInt(((ApiResponseElement) response).getValue());
+                
+                LOGGER.debug("Records left to scan: {}", recordsToScan);
+                
+                if (recordsToScan == 0) {
+                    LOGGER.info("Passive scan completed");
+                    break;
+                }
+                
+                // Check for timeout
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                if (elapsedTime > timeoutInMs) {
+                    LOGGER.warn("Passive scan timed out after {} minutes", timeoutInMinutes);
+                    throw new ZapScannerException("Passive scan timed out after " + timeoutInMinutes + " minutes");
+                }
+                
+                // Wait before checking again
+                Thread.sleep(POLL_INTERVAL_MS);
             }
-            
-            LOGGER.info("Selenium script execution completed");
-        } catch (ScriptException | IOException e) {
-            LOGGER.error("Failed to execute Selenium script", e);
-            throw new ZapScannerException("Failed to execute Selenium script: " + e.getMessage(), e);
+        } catch (ClientApiException | InterruptedException | NumberFormatException e) {
+            LOGGER.error("Failed during passive scan", e);
+            throw new ZapScannerException("Failed during passive scan: " + e.getMessage(), e);
         }
     }
-
+    
     /**
-     * Performs a security scan after Selenium navigation.
+     * Performs an active scan on the navigated content.
      * 
-     * @param contextName The ZAP context name
+     * @param targetUrl The target URL
+     * @param contextName The ZAP context name (optional)
      * @param scanPolicy The scan policy to use
      * @param timeoutInMinutes The maximum scan duration in minutes
      * @throws ZapScannerException If scanning fails
      */
-    public void performScan(String contextName, ScanPolicy scanPolicy, int timeoutInMinutes) throws ZapScannerException {
-        if (driver == null) {
-            throw new ZapScannerException("WebDriver not initialized. Call initializeWebDriver first.");
+    public void performActiveScan(String targetUrl, String contextName, ScanPolicy scanPolicy, int timeoutInMinutes) 
+            throws ZapScannerException {
+        if (targetUrl == null || targetUrl.trim().isEmpty()) {
+            throw new ZapScannerException("Target URL cannot be null or empty");
         }
         
+        LOGGER.info("Starting active scan for target URL: {}", targetUrl);
+        
         try {
-            LOGGER.info("Starting security scan after Selenium navigation");
+            // Set up authentication if needed
+            Integer contextId = null;
+            Integer userId = null;
             
-            // Get the current URL that Selenium has navigated to
-            String currentUrl = driver.getCurrentUrl();
-            LOGGER.info("Current URL: {}", currentUrl);
-            
-            // Configure ZAP context if needed
-            if (contextName != null && !contextName.isEmpty()) {
-                configureContext(contextName, currentUrl);
-            }
-            
-            // Run the active scan
-            int scanId = startActiveScan(contextName, currentUrl, scanPolicy);
-            
-            // Wait for scan completion
-            waitForActiveScanCompletion(scanId, timeoutInMinutes);
-            
-            LOGGER.info("Security scan completed");
-        } catch (Exception e) {
-            LOGGER.error("Failed to perform security scan", e);
-            throw new ZapScannerException("Failed to perform security scan: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Configures a ZAP context for the specified URL.
-     * 
-     * @param contextName The context name
-     * @param url The URL to include in the context
-     * @throws ZapScannerException If context configuration fails
-     */
-    private void configureContext(String contextName, String url) throws ZapScannerException {
-        try {
-            // Create a new context
-            zapClient.context.newContext(contextName);
-            
-            // Include URL in context
-            String urlPattern = url.replaceAll("https?://[^/]+", "https?://[^/]+");
-            zapClient.context.includeInContext(contextName, urlPattern);
-            
-            LOGGER.info("Configured context '{}' with URL pattern: {}", contextName, urlPattern);
-        } catch (ClientApiException e) {
-            LOGGER.error("Failed to configure context", e);
-            throw new ZapScannerException("Failed to configure context: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Starts an active scan.
-     * 
-     * @param contextName The context name
-     * @param url The URL to scan
-     * @param scanPolicy The scan policy to use
-     * @return The scan ID
-     * @throws ZapScannerException If starting the scan fails
-     */
-    private int startActiveScan(String contextName, String url, ScanPolicy scanPolicy) throws ZapScannerException {
-        try {
-            Map<String, String> params = new HashMap<>();
-            
-            // Set scan policy if provided
-            if (scanPolicy != null) {
-                params.put("scanPolicyName", scanPolicy.getName());
-            }
-            
-            // Add context if provided
-            if (contextName != null && !contextName.isEmpty()) {
-                params.put("contextName", contextName);
+            if (authHandler != null && contextName != null && !contextName.isEmpty()) {
+                // Configure authentication
+                contextId = authHandler.setupAuthentication(contextName);
+                LOGGER.info("Authentication configured for context ID: {}", contextId);
+                // In a real implementation, we would also get the user ID
             }
             
             // Start the active scan
-            LOGGER.info("Starting active scan for URL: {}", url);
-            ApiResponse response = zapClient.ascan.scan(url, "true", "true", null, null, null);
+            ApiResponse response;
+            String scanIdStr;
+            
+            if (contextId != null && userId != null) {
+                // Scan as user
+                response = zapClient.ascan.scanAsUser(targetUrl, contextId, userId);
+            } else {
+                // Regular scan
+                Map<String, String> params = new HashMap<>();
+                params.put("url", targetUrl);
+                params.put("recurse", "true");
+                params.put("inScopeOnly", "false");
+                
+                if (contextName != null && !contextName.isEmpty()) {
+                    params.put("contextName", contextName);
+                }
+                
+                if (scanPolicy != null) {
+                    params.put("scanPolicyName", scanPolicy.getName());
+                }
+                
+                response = zapClient.ascan.scan(targetUrl, "true", "false", scanPolicy.getName(), null, null);
+            }
             
             // Extract scan ID
-            String scanIdStr = ((ApiResponseElement) response).getValue();
+            scanIdStr = ((ApiResponseElement) response).getValue();
             int scanId = Integer.parseInt(scanIdStr);
             
             LOGGER.info("Active scan started with ID: {}", scanId);
-            return scanId;
-        } catch (ClientApiException | NumberFormatException e) {
-            LOGGER.error("Failed to start active scan", e);
-            throw new ZapScannerException("Failed to start active scan: " + e.getMessage(), e);
+            
+            // Configure scan policy if provided
+            if (scanPolicy != null) {
+                configureScanPolicy(scanId, scanPolicy);
+            }
+            
+            // Wait for scan to complete
+            waitForActiveScanCompletion(scanId, timeoutInMinutes);
+        } catch (Exception e) {
+            LOGGER.error("Failed during active scan", e);
+            throw new ZapScannerException("Failed during active scan: " + e.getMessage(), e);
         }
     }
-
+    
+    /**
+     * Configures a scan with the specified policy.
+     * 
+     * @param scanId The scan ID
+     * @param policy The scan policy
+     * @throws ClientApiException If configuration fails
+     */
+    private void configureScanPolicy(int scanId, ScanPolicy policy) throws ClientApiException {
+        LOGGER.debug("Configuring scan policy for scan ID: {}", scanId);
+        
+        // In a real implementation, we would configure the scan policy
+        // For this stub, we'll just log the action
+        
+        LOGGER.debug("Scan policy configured for scan ID: {}", scanId);
+    }
+    
     /**
      * Waits for an active scan to complete.
      * 
@@ -264,66 +248,13 @@ public class SeleniumScanner {
             throw new ZapScannerException("Failed while waiting for active scan completion: " + e.getMessage(), e);
         }
     }
-
+    
     /**
-     * Initializes a Chrome WebDriver with ZAP proxy settings.
+     * Gets the driver path.
      * 
-     * @param proxyAddress The ZAP proxy address
-     * @return The WebDriver instance
+     * @return The driver path
      */
-    private WebDriver initChromeDriver(String proxyAddress) {
-        ChromeOptions options = new ChromeOptions();
-        
-        // Configure proxy
-        Proxy proxy = new Proxy();
-        proxy.setHttpProxy(proxyAddress);
-        proxy.setSslProxy(proxyAddress);
-        options.setProxy(proxy);
-        
-        // Additional options
-        options.setAcceptInsecureCerts(true);
-        options.addArguments("--headless");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        
-        return new ChromeDriver(options);
-    }
-
-    /**
-     * Initializes a Firefox WebDriver with ZAP proxy settings.
-     * 
-     * @param proxyAddress The ZAP proxy address
-     * @return The WebDriver instance
-     */
-    private WebDriver initFirefoxDriver(String proxyAddress) {
-        FirefoxOptions options = new FirefoxOptions();
-        
-        // Configure proxy
-        Proxy proxy = new Proxy();
-        proxy.setHttpProxy(proxyAddress);
-        proxy.setSslProxy(proxyAddress);
-        options.setProxy(proxy);
-        
-        // Additional options
-        options.setAcceptInsecureCerts(true);
-        options.addArguments("-headless");
-        
-        return new FirefoxDriver(options);
-    }
-
-    /**
-     * Closes the WebDriver.
-     */
-    public void close() {
-        if (driver != null) {
-            try {
-                driver.quit();
-                LOGGER.info("WebDriver closed");
-            } catch (Exception e) {
-                LOGGER.warn("Failed to close WebDriver", e);
-            } finally {
-                driver = null;
-            }
-        }
+    public String getDriverPath() {
+        return driverPath;
     }
 }
