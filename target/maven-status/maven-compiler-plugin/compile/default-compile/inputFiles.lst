@@ -1,3 +1,4 @@
+/home/runner/workspace/src/main/java/com/securitytesting/zap/remediation/RemediationGenerator.java
 /home/runner/workspace/src/main/java/com/securitytesting/zap/policy/ScanPolicy.java
 /home/runner/workspace/src/main/java/org/zaproxy/clientapi/core/ApiResponseElement.java
 /home/runner/workspace/src/main/java/com/securitytesting/zap/report/ScanResult.java
@@ -30,7 +31,9 @@
 /home/runner/workspace/src/main/java/com/securitytesting/zap/auth/CertificateAuthenticationHandler.java
 /home/runner/workspace/src/main/java/org/zaproxy/clientapi/core/Authentication.java
 /home/runner/workspace/src/main/java/com/securitytesting/zap/scanner/WebAppScanner.java
+/home/runner/workspace/src/main/java/com/securitytesting/zap/remediation/RemediationSuggestion.java
 /home/runner/workspace/src/main/java/org/zaproxy/clientapi/core/ClientApi.java
+/home/runner/workspace/src/main/java/com/securitytesting/zap/report/RemediationReport.java
 /home/runner/workspace/src/main/java/com/securitytesting/zap/scanner/OpenApiScanner.java
 /home/runner/workspace/src/main/java/com/securitytesting/zap/auth/AuthenticationHandler.java
 /home/runner/workspace/src/main/java/com/securitytesting/zap/report/Alert.java

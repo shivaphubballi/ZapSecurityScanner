@@ -12,6 +12,7 @@ import com.securitytesting.zap.exception.ScanConfigurationException;
 import com.securitytesting.zap.exception.ZapScannerException;
 import com.securitytesting.zap.policy.PolicyManager;
 import com.securitytesting.zap.policy.ScanPolicy;
+import com.securitytesting.zap.report.RemediationReport;
 import com.securitytesting.zap.report.ReportGenerator;
 import com.securitytesting.zap.report.ScanResult;
 import com.securitytesting.zap.scanner.OpenApiScanner;
@@ -331,6 +332,29 @@ public class ZapScanner {
     }
     
     /**
+     * Generates a remediation report with guided suggestions for fixing vulnerabilities.
+     * 
+     * @param result The scan result
+     * @param outputPath The output path for the report
+     * @param format The format of the report (html or markdown)
+     * @throws ZapScannerException If report generation fails
+     */
+    public void generateRemediationReport(ScanResult result, String outputPath, String format) 
+            throws ZapScannerException {
+        LOGGER.info("Generating remediation report in {} format to {}", format, outputPath);
+        
+        try {
+            RemediationReport remediationReport = new RemediationReport(result);
+            remediationReport.saveToFile(outputPath, format);
+            LOGGER.info("Remediation report successfully generated with {} suggestions", 
+                       remediationReport.getRemediationSuggestions().size());
+        } catch (IOException e) {
+            LOGGER.error("Failed to generate remediation report", e);
+            throw new ZapScannerException("Failed to generate remediation report: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
      * Creates an authentication handler based on the authentication configuration.
      * 
      * @param authConfig The authentication configuration
@@ -383,72 +407,17 @@ public class ZapScanner {
                 // Create OAuth2 authentication handler
                 handler = new OAuth2AuthenticationHandler(
                     zapClient,
-                    authConfig.getOauth2LoginUrl(),
-                    authConfig.getOauth2ClientId(),
-                    authConfig.getOauth2ClientSecret(),
-                    authConfig.getOauth2TokenUrl(),
-                    authConfig.getOauth2RedirectUri()
+                    authConfig.getClientId(),
+                    authConfig.getClientSecret(),
+                    authConfig.getTokenUrl(),
+                    authConfig.getAuthorizationUrl(),
+                    authConfig.getRedirectUrl(),
+                    authConfig.getScope()
                 );
                 break;
-                
-            default:
-                throw new AuthenticationException("Unsupported authentication type: " + authConfig.getType());
         }
         
         return handler;
-    }
-    
-    /**
-     * Checks if the ZAP API is available.
-     * Tests the connection to the ZAP instance.
-     * 
-     * @return True if ZAP API is available, false otherwise
-     */
-    public boolean isZapApiAvailable() {
-        try {
-            // In a real implementation, we would check if ZAP is running
-            // by sending a simple request to the API
-            // For this stub, we'll just return true
-            return zapClient != null;
-        } catch (Exception e) {
-            LOGGER.error("Failed to check ZAP API availability", e);
-            return false;
-        }
-    }
-    
-    /**
-     * Gets the ZAP client.
-     * 
-     * @return The ZAP client
-     */
-    public ClientApi getZapClient() {
-        return zapClient;
-    }
-    
-    /**
-     * Closes the ZAP scanner and releases resources.
-     * 
-     * @throws ZapScannerException If closing fails
-     */
-    public void close() throws ZapScannerException {
-        LOGGER.info("Closing ZAP scanner");
-        try {
-            // In a real implementation, we would close connections, shutdown ZAP, etc.
-            // For this stub, we'll just log the action
-            LOGGER.info("ZAP scanner closed");
-        } catch (Exception e) {
-            LOGGER.error("Failed to close ZAP scanner", e);
-            throw new ZapScannerException("Failed to close ZAP scanner: " + e.getMessage(), e);
-        }
-    }
-    
-    /**
-     * Gets the scan configuration.
-     * 
-     * @return The scan configuration
-     */
-    public ScanConfig getConfig() {
-        return config;
     }
     
     /**
@@ -461,11 +430,33 @@ public class ZapScanner {
     }
     
     /**
-     * Gets the report generator.
+     * Stops ZAP.
+     * Shuts down the ZAP instance.
      * 
-     * @return The report generator
+     * @throws ZapScannerException If stopping ZAP fails
      */
-    public ReportGenerator getReportGenerator() {
-        return reportGenerator;
+    public void stopZap() throws ZapScannerException {
+        try {
+            LOGGER.info("Stopping ZAP");
+            zapClient.core.shutdown();
+            LOGGER.info("ZAP stopped");
+        } catch (ClientApiException e) {
+            LOGGER.error("Failed to stop ZAP", e);
+            throw new ZapScannerException("Failed to stop ZAP: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Checks if the ZAP API is available.
+     * 
+     * @return True if the ZAP API is available, false otherwise
+     */
+    public boolean isZapApiAvailable() {
+        try {
+            zapClient.core.version();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

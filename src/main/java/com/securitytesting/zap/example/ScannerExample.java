@@ -6,12 +6,14 @@ import com.securitytesting.zap.config.ScanConfig;
 import com.securitytesting.zap.exception.ZapScannerException;
 import com.securitytesting.zap.policy.PolicyManager;
 import com.securitytesting.zap.policy.ScanPolicy;
+import com.securitytesting.zap.report.RemediationReport;
 import com.securitytesting.zap.report.ReportGenerator;
 import com.securitytesting.zap.report.ScanResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.concurrent.TimeUnit;
@@ -90,13 +92,15 @@ public class ScannerExample {
                 // Print summary
                 printScanSummary(result);
                 
-                // Generate HTML report
+                // Generate standard reports
                 scanner.generateReport(result, ReportGenerator.ReportFormat.HTML, "zap-report.html");
                 System.out.println("HTML report generated: zap-report.html");
                 
-                // Generate JSON report
                 scanner.generateReport(result, ReportGenerator.ReportFormat.JSON, "zap-report.json");
                 System.out.println("JSON report generated: zap-report.json");
+                
+                // Generate remediation report
+                generateRemediationReport(result);
             }
             
             // Stop ZAP (optional)
@@ -105,6 +109,32 @@ public class ScannerExample {
         } catch (ZapScannerException | MalformedURLException e) {
             LOGGER.error("Error during scan", e);
             System.err.println("Error during scan: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Generates remediation reports.
+     *
+     * @param result The scan result
+     */
+    private static void generateRemediationReport(ScanResult result) {
+        try {
+            RemediationReport remediationReport = new RemediationReport(result);
+            
+            // Generate HTML remediation report
+            remediationReport.saveToFile("remediation-report.html", "html");
+            System.out.println("Remediation HTML report generated: remediation-report.html");
+            
+            // Generate Markdown remediation report
+            remediationReport.saveToFile("remediation-report.md", "markdown");
+            System.out.println("Remediation Markdown report generated: remediation-report.md");
+            
+            // Print remediation suggestions count
+            System.out.println("Generated " + remediationReport.getRemediationSuggestions().size() + 
+                               " remediation suggestions for detected vulnerabilities");
+        } catch (IOException e) {
+            LOGGER.error("Failed to generate remediation report", e);
+            System.err.println("Failed to generate remediation report: " + e.getMessage());
         }
     }
     
@@ -123,7 +153,8 @@ public class ScannerExample {
                 .maxSpiderDepth(5)
                 .maxSpiderDuration(10, TimeUnit.MINUTES)
                 .maxPassiveScanDuration(10, TimeUnit.MINUTES)
-                .maxActiveScanDuration(30, TimeUnit.MINUTES);
+                .maxActiveScanDuration(30, TimeUnit.MINUTES)
+                .activeScanEnabled(true); // Ensure active scanning is enabled
         
         // Add authentication if needed
         AuthenticationConfig authConfig = createAuthenticationConfig();
